@@ -1,0 +1,2580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Catheter Hemodynamics Lab</title>
+<meta name="description" content="Interactive, physics-based model of blood flow, infusion jets, shear and clot formation around an intravascular catheter.">
+<meta property="og:title" content="Catheter Hemodynamics Lab">
+<meta property="og:description" content="Interactive, physics-based model of blood flow, infusion and withdrawal jets, shear and clot formation around an intravascular catheter.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23170a0e'/%3E%3Crect x='4' y='14' width='56' height='36' fill='%2342101a'/%3E%3Crect x='4' y='26' width='40' height='12' rx='6' fill='%23cfe2ec'/%3E%3Ccircle cx='50' cy='20' r='4' fill='%23e2464e'/%3E%3Ccircle cx='54' cy='44' r='4' fill='%23e2464e'/%3E%3Ccircle cx='52' cy='32' r='3' fill='%237fd0ff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: instrument console. Controls rail | live vessel view + charts | cross-section + readouts rail */
+:root{
+  --bg:#e9edf0; --panel:#ffffff; --panel-2:#f3f5f7; --ink:#15202a; --ink-2:#465564; --ink-3:#7b8896; --line:#d3dae1;
+  --accent:#0a7684; --accent-soft:#d3ecef; --accent-ink:#ffffff;
+  --blood:#b3263a; --infusate:#1c80c8; --clot:#8c3a22; --fibrin:#b58a3c;
+  --ok:#25804f; --ok-soft:#dcf0e4; --warn:#a86a08; --warn-soft:#f7ead2; --crit:#c0244f; --crit-soft:#f8dde5;
+  --s1:#0a7684; --s2:#c03a4a; --s3:#3a6fd0; --s4:#9a6a12;
+  --stage:#170a0e;
+  --font-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --font-ui:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1216; --panel:#151b21; --panel-2:#1b232b; --ink:#e4e9ee; --ink-2:#a0acb8; --ink-3:#6f7c89; --line:#28323c;
+  --accent:#3bbccb; --accent-soft:#163a40; --accent-ink:#06191c;
+  --blood:#e2506a; --infusate:#5fb4f5; --clot:#d0784f; --fibrin:#d8b36a;
+  --ok:#4cc386; --ok-soft:#173326; --warn:#e7a940; --warn-soft:#382a12; --crit:#ff6690; --crit-soft:#3d1724;
+  --s1:#3bbccb; --s2:#ff7a8a; --s3:#7aa6ff; --s4:#e7b65a; --stage:#12080b; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1216; --panel:#151b21; --panel-2:#1b232b; --ink:#e4e9ee; --ink-2:#a0acb8; --ink-3:#6f7c89; --line:#28323c;
+  --accent:#3bbccb; --accent-soft:#163a40; --accent-ink:#06191c;
+  --blood:#e2506a; --infusate:#5fb4f5; --clot:#d0784f; --fibrin:#d8b36a;
+  --ok:#4cc386; --ok-soft:#173326; --warn:#e7a940; --warn-soft:#382a12; --crit:#ff6690; --crit-soft:#3d1724;
+  --s1:#3bbccb; --s2:#ff7a8a; --s3:#7aa6ff; --s4:#e7b65a; --stage:#12080b; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--font-ui);margin:0}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;align-items:start;grid-template-columns:300px minmax(0,1fr) 340px;grid-template-areas:"head head head" "ctrl main side";gap:14px;
+  padding-block:14px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1900px;margin:0 auto}
+header.top{grid-area:head;display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px}
+.brand{display:flex;flex-direction:column;min-width:0}
+.brand h1{font-family:var(--font-display);font-stretch:82%;font-weight:750;font-size:1.6rem;line-height:1.05;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.brand p{margin:2px 0 0;color:var(--ink-2);font-size:.82rem}
+.hbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-left:auto}
+.clockbox{display:flex;gap:14px;font:500 .8rem var(--font-mono);color:var(--ink-2);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.clockbox b{color:var(--ink);font-weight:600}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;font-size:.85rem;display:inline-flex;gap:6px;align-items:center}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.small{padding:4px 9px;font-size:.78rem}
+.btn.danger{color:var(--crit)}
+select{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:5px 8px;font-size:.85rem;max-width:100%}
+.rail{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ctrl{grid-area:ctrl}.side{grid-area:side}.mainc{grid-area:main;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+details.sec{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+details.sec>summary{list-style:none;cursor:pointer;padding:10px 14px;font-family:var(--font-display);font-stretch:88%;font-weight:700;font-size:.95rem;display:flex;justify-content:space-between;align-items:center}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(45deg);transition:transform .15s}
+details.sec[open]>summary::after{transform:rotate(-135deg)}
+.secbody{padding:0 14px 12px;display:flex;flex-direction:column;gap:2px}
+.ctl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:baseline;padding:5px 0}
+.ctl>label{font-size:.8rem;color:var(--ink-2)}
+.ctl output{font:500 .8rem var(--font-mono);color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:2px 0 0}
+.ctl select{grid-column:1/-1}
+.ctl .note{grid-column:1/-1;font-size:.74rem;color:var(--ink-3)}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.seg{display:inline-grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+.seg label{display:flex;flex-direction:column;padding:5px 12px;cursor:pointer;font-weight:600;font-size:.82rem;line-height:1.2;color:var(--ink-2)}
+.seg label small{font-weight:500;font-size:.68rem;color:var(--ink-3)}
+.seg label+label{border-left:1px solid var(--line)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--accent-ink)}
+.seg label:has(input:checked) small{color:var(--accent-ink);opacity:.85}
+.seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+.check{display:flex;gap:8px;align-items:center;font-size:.82rem;padding:5px 0}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.hint{font-size:.76rem;color:var(--ink-2);background:var(--panel-2);border-radius:8px;padding:8px 10px;margin:4px 0}
+.subhead{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:10px 0 2px;font-weight:600}
+table.holes{width:100%;border-collapse:collapse;font:500 .74rem var(--font-mono);font-variant-numeric:tabular-nums}
+table.holes th{font:600 .66rem var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);text-align:right;padding:4px 3px;border-bottom:1px solid var(--line)}
+table.holes th:first-child,table.holes td:first-child{text-align:left}
+table.holes td{text-align:right;padding:4px 3px;border-bottom:1px solid var(--line);cursor:pointer}
+table.holes tr.sel td{background:var(--accent-soft)}
+table.holes tr:hover td{background:var(--panel-2)}
+.tablewrap{max-height:220px;overflow:auto}
+.editor{border:1px solid var(--accent);border-radius:8px;padding:6px 10px;margin-top:8px;background:var(--panel-2)}
+.stage{position:relative;border-radius:var(--r);overflow:hidden;background:var(--stage);border:1px solid var(--line)}
+#view{display:block;width:100%;height:clamp(300px,36vw,520px);touch-action:none;cursor:crosshair}
+.legend{position:absolute;left:10px;bottom:8px;display:flex;flex-wrap:wrap;gap:4px 12px;font:500 .7rem var(--font-ui);color:#e9d9dc;pointer-events:none;text-shadow:0 1px 2px #000}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+#tip{position:absolute;pointer-events:none;background:rgba(14,10,12,.9);color:#f1e6e8;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px 9px;font:500 .72rem/1.45 var(--font-mono);white-space:nowrap;transform:translate(14px,14px);z-index:3}
+.viewbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:.8rem;color:var(--ink-2)}
+.viewbar label{display:flex;gap:6px;align-items:center}
+.charts{padding:10px 12px 12px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:8px}
+.tab{border:none;background:none;padding:7px 12px;cursor:pointer;font-weight:600;font-size:.84rem;color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 10px;font-size:.74rem;cursor:pointer;color:var(--ink-2)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chartctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:8px;font-size:.8rem;color:var(--ink-2)}
+.chartctl label{display:flex;gap:6px;align-items:center}
+#chart{display:block;width:100%;height:300px;touch-action:none}
+.exports{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.xs{padding:10px 12px}
+.xs h2,.mgroup h2{font-family:var(--font-display);font-stretch:88%;font-weight:700;font-size:.95rem;margin:0}
+.xshead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+#xs{display:block;width:100%;aspect-ratio:1/1;max-width:100%;touch-action:none;border-radius:8px;background:var(--stage)}
+.xsnote{font-size:.72rem;color:var(--ink-3);margin-top:6px}
+.mgroup{padding:10px 12px 12px}
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.card{background:var(--panel-2);border-radius:8px;padding:8px 9px;min-width:0;border-left:3px solid var(--line)}
+.card.ok{border-left-color:var(--ok)}.card.warn{border-left-color:var(--warn)}.card.crit{border-left-color:var(--crit)}
+.card.wide{grid-column:1/-1}
+.card .k{font-size:.7rem;color:var(--ink-2);line-height:1.25}
+.card .v{font:600 1.02rem/1.25 var(--font-mono);font-variant-numeric:tabular-nums;margin-top:2px;overflow-wrap:anywhere}
+.card .v small{font-size:.7rem;font-weight:500;color:var(--ink-2);margin-left:3px}
+.card .s{font-size:.68rem;color:var(--ink-3);margin-top:2px;overflow-wrap:anywhere}
+.pill{display:inline-block;font:600 .62rem var(--font-ui);letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:1px}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.crit{background:var(--crit-soft);color:var(--crit)}
+.vbars{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:3px 8px;align-items:center;margin-top:6px;font-size:.7rem;color:var(--ink-2)}
+.vbar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.vbar span{display:block;height:100%;background:var(--accent)}
+.proj{font-size:.74rem;line-height:1.5;margin-top:4px;color:var(--ink)}
+.methods{padding:4px 0}
+.methods .secbody{font-size:.78rem;color:var(--ink-2);line-height:1.55;gap:6px}
+.methods p{margin:0}
+.methods b{color:var(--ink)}
+.methods code{font:500 .74rem var(--font-mono);color:var(--ink)}
+.methods ol{margin:0;padding-left:18px}
+#toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:.84rem;z-index:20;max-width:calc(100% - 32px)}
+@media (max-width:1260px){
+  .app{grid-template-columns:290px minmax(0,1fr);grid-template-areas:"head head" "ctrl main" "side side"}
+  .side{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start}
+}
+@media (max-width:820px){
+  .legend{position:static;padding:6px 10px;background:var(--stage)}
+  .app{grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "main" "ctrl" "side"}
+  .hbar{margin-left:0}
+  #view{height:320px}
+  #chart{height:260px}
+  .side{display:flex}
+}
+@media (prefers-reduced-motion: reduce){ details.sec>summary::after{transition:none} }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Catheter Hemodynamics Lab</h1>
+      <p>Blood flow, infusion jets, shear and clot formation around an intravascular catheter</p>
+    </div>
+    <div class="hbar">
+      <label class="row" for="preset" style="font-size:.8rem;color:var(--ink-2)">Scenario
+        <select id="preset"></select>
+      </label>
+      <div class="seg" role="radiogroup" aria-label="Flow direction through the catheter">
+        <label for="modeOut"><input type="radio" name="mode" id="modeOut" autocomplete="off" value="infuse">Out of catheter<small>infusion · dialysis return</small></label>
+        <label for="modeIn"><input type="radio" name="mode" id="modeIn" autocomplete="off" value="aspirate">Into catheter<small>aspiration · dialysis withdrawal</small></label>
+      </div>
+      <button class="btn primary" id="play" type="button" aria-pressed="true">Pause</button>
+      <button class="btn" id="resetView" type="button">Reset view</button>
+      <div class="clockbox" aria-live="off"><span>Flow time <b id="tPhys">0.00 s</b></span><span>Clinical clock <b id="tClin">0 h</b></span></div>
+    </div>
+  </header>
+
+  <aside class="rail ctrl" aria-label="Model controls">
+    <details class="sec" open>
+      <summary>Vessel</summary>
+      <div class="secbody">
+        <div class="ctl"><label for="D">Vessel diameter</label><output id="oD"></output><input type="range" id="D" min="1.5" max="30" step="0.1"></div>
+        <div class="ctl"><label for="Q">Blood flow without catheter</label><output id="oQ"></output><input type="range" id="Q" min="0" max="1000" step="1"><span class="note">Mean flow of the healthy vessel. Log scale.</span></div>
+        <div class="ctl"><label for="wave">Flow waveform</label><select id="wave"></select></div>
+        <div class="ctl"><label for="hr">Heart rate</label><output id="ohr"></output><input type="range" id="hr" min="40" max="180" step="1"></div>
+        <div class="ctl"><label for="rr">Respiratory rate</label><output id="orr"></output><input type="range" id="rr" min="6" max="40" step="1"></div>
+        <div class="ctl"><label for="vtype">Vessel type</label><select id="vtype"><option value="vein">Vein</option><option value="artery">Artery</option></select></div>
+        <div class="ctl"><label for="Pv">Mean blood pressure in vessel</label><output id="oPv"></output><input type="range" id="Pv" min="0" max="130" step="1"></div>
+        <div class="ctl"><label for="share">Resistance share of this segment</label><output id="oshare"></output><input type="range" id="share" min="0" max="1" step="0.01"><span class="note">0 = flow fixed upstream (arteries feeding resistant beds). 1 = driving pressure fixed, so the catheter cuts flow fully.</span></div>
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>Catheter</summary>
+      <div class="secbody">
+        <div class="ctl"><label for="fr">Outer size</label><output id="ofr"></output><input type="range" id="fr" min="1" max="24" step="0.1"><span class="note" id="frNote"></span></div>
+        <div class="ctl"><label for="wallT">Wall thickness</label><output id="owallT"></output><input type="range" id="wallT" min="0.05" max="1.5" step="0.01"><span class="note" id="idNote"></span></div>
+        <div class="ctl"><label for="len">Catheter length</label><output id="olen"></output><input type="range" id="len" min="1" max="120" step="0.5"></div>
+        <div class="ctl"><label for="ecc">Position in vessel</label><output id="oecc"></output><input type="range" id="ecc" min="-1" max="1" step="0.01"><span class="note">Drag the catheter in the cross-section too. ±1 = touching the wall.</span></div>
+        <div class="ctl"><label for="mat">Material</label><select id="mat"></select></div>
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>Holes</summary>
+      <div class="secbody">
+        <div class="hint">Click the catheter to add a side hole. Drag a hole to move it along the catheter or around its circumference. Scroll over a hole to resize it. Press Delete to remove the selected hole.</div>
+        <label class="check" for="endHole"><input type="checkbox" id="endHole"> Open end hole at the tip</label>
+        <div class="ctl" id="endDiaRow"><label for="endDia">End-hole diameter</label><output id="oendDia"></output><input type="range" id="endDia" min="0.1" max="5" step="0.01"></div>
+        <div class="tablewrap"><table class="holes" id="holeTable"><thead><tr><th>Hole</th><th>Tip→ mm</th><th>Angle</th><th>Ø mm</th><th>Flow</th><th>Speed m/s</th><th>Occl.</th></tr></thead><tbody></tbody></table></div>
+        <div class="editor" id="holeEd" hidden>
+          <div class="subhead" id="hTitle" style="margin-top:2px">Hole</div>
+          <div class="ctl"><label for="hDia">Diameter</label><output id="ohDia"></output><input type="range" id="hDia" min="0.05" max="3" step="0.01"></div>
+          <div class="ctl"><label for="hAng">Angle around catheter</label><output id="ohAng"></output><input type="range" id="hAng" min="0" max="359" step="1"><span class="note">0° faces the top wall, 90° faces you, 180° the bottom wall.</span></div>
+          <div class="ctl"><label for="hDist">Distance from tip</label><output id="ohDist"></output><input type="range" id="hDist" min="0.5" max="120" step="0.1"></div>
+          <div class="row"><button class="btn small" id="hDup" type="button">Duplicate</button><button class="btn small danger" id="hDel" type="button">Delete hole</button></div>
+        </div>
+        <div class="subhead">Pattern generator</div>
+        <div class="ctl"><label for="gN">Number of side holes</label><output id="ogN"></output><input type="range" id="gN" min="1" max="32" step="1" value="6"></div>
+        <div class="ctl"><label for="gSpacing">Spacing</label><output id="ogSpacing"></output><input type="range" id="gSpacing" min="0.5" max="30" step="0.5" value="4"></div>
+        <div class="ctl"><label for="gFirst">Tip to first hole</label><output id="ogFirst"></output><input type="range" id="gFirst" min="0.5" max="30" step="0.5" value="3"></div>
+        <div class="ctl"><label for="gDia">Hole diameter</label><output id="ogDia"></output><input type="range" id="gDia" min="0.05" max="3" step="0.01" value="0.5"></div>
+        <div class="ctl"><label for="gTaper">Distal ÷ proximal size</label><output id="ogTaper"></output><input type="range" id="gTaper" min="0.4" max="2.5" step="0.05" value="1"></div>
+        <div class="ctl"><label for="gPattern">Arrangement</label><select id="gPattern">
+          <option value="stagger">Staggered 180°</option><option value="opposed">Opposing pairs</option><option value="inline">In line, top</option><option value="front">In line, facing you</option><option value="spiral90">Spiral 90°</option><option value="spiral120">Spiral 120°</option><option value="helix60">Helix 60°</option></select></div>
+        <div class="row" style="margin-top:4px"><button class="btn small primary" id="gApply" type="button">Replace side holes</button><button class="btn small" id="hEqualize" type="button">Equalize hole flows</button><button class="btn small danger" id="hClear" type="button">Remove side holes</button></div>
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>Catheter flow</summary>
+      <div class="secbody">
+        <div class="hint" id="modeHint"></div>
+        <div class="ctl" id="infusateRow"><label for="infusate">Infusate</label><select id="infusate"></select></div>
+        <div class="ctl"><label for="inf" id="infLabel">Flow rate</label><output id="oinf"></output><input type="range" id="inf" min="0" max="1000" step="1"><span class="note" id="infNote"></span></div>
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>Blood &amp; patient</summary>
+      <div class="secbody">
+        <div class="ctl"><label for="hct">Hematocrit</label><output id="ohct"></output><input type="range" id="hct" min="20" max="65" step="1"></div>
+        <div class="ctl"><label for="rheo">Blood rheology</label><select id="rheo"><option value="carreau">Shear-thinning (Carreau)</option><option value="newtonian">Newtonian</option></select></div>
+        <div class="ctl"><label for="coag">Coagulability</label><select id="coag"></select></div>
+        <div class="ctl"><label for="ac">Anticoagulation</label><select id="ac"></select></div>
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>Clinical clock</summary>
+      <div class="secbody">
+        <div class="ctl"><label for="clockRate">Clot time speed</label><select id="clockRate"><option value="0">Paused</option><option value="1">1 hour per second</option><option value="6" selected>6 hours per second</option><option value="24">1 day per second</option><option value="72">3 days per second</option></select><span class="note">Clot and fibrin grow on this clock using time-averaged flow. The flow animation runs separately in slow motion.</span></div>
+        <div class="row"><button class="btn small" id="clotReset" type="button">New catheter (clear clot)</button><button class="btn small" id="lyse" type="button">Alteplase lock</button></div>
+      </div>
+    </details>
+
+    <details class="sec">
+      <summary>Display</summary>
+      <div class="secbody">
+        <div class="ctl"><label for="overlay">Color overlay in vessel</label><select id="overlay"><option value="none">None</option><option value="u">Velocity</option><option value="g">Shear rate</option><option value="mu">Blood viscosity</option><option value="pc">Coagulation propensity</option></select></div>
+        <div class="ctl"><label for="cells">Blood cells</label><select id="cells"><option value="slice">Mid-plane slice</option><option value="volume">Whole vessel (depth shaded)</option></select></div>
+        <div class="ctl"><label for="slowmo">Slow motion</label><output id="oslowmo"></output><input type="range" id="slowmo" min="0" max="1000" step="1"></div>
+        <div class="ctl"><label for="zoom">Axial zoom</label><output id="ozoom"></output><input type="range" id="zoom" min="0.15" max="4" step="0.01"></div>
+        <label class="check" for="labels"><input type="checkbox" id="labels" checked> Hole labels and annotations</label>
+      </div>
+    </details>
+  </aside>
+
+  <main class="mainc">
+    <div class="stage" id="stage">
+      <canvas id="view" tabindex="0" aria-label="Side view of the vessel and catheter. Click the catheter to add holes."></canvas>
+      <div class="legend" aria-hidden="true"><span><i style="background:#d8404b"></i>Red cells</span><span><i style="background:#f0d27a"></i>Platelets</span><span id="legInf"><i style="background:#7fd0ff"></i>Infusate</span><span><i style="background:#e9dcc0"></i>Fibrin sheath</span><span><i style="background:#6e1d14"></i>Thrombus</span></div>
+      <div id="tip" hidden></div>
+    </div>
+    <div class="viewbar"><span id="viewInfo"></span></div>
+
+    <section class="panel charts" aria-label="Charts">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="live" aria-selected="true" type="button">Live trace</button>
+        <button class="tab" role="tab" data-tab="sweep" aria-selected="false" type="button">Parameter sweep</button>
+        <button class="tab" role="tab" data-tab="holes" aria-selected="false" type="button">Per hole</button>
+        <button class="tab" role="tab" data-tab="profile" aria-selected="false" type="button">Profile across vessel</button>
+      </div>
+      <div id="ctlLive">
+        <div class="chips" id="liveChips"></div>
+        <div class="chartctl"><label for="xAxis">Time axis <select id="xAxis"><option value="real">Flow time (s)</option><option value="clin">Clinical clock (h)</option></select></label><span>Pick up to 4 variables. Values update live.</span></div>
+      </div>
+      <div id="ctlSweep" hidden>
+        <div class="chartctl">
+          <label for="sweepX">Vary <select id="sweepX"></select></label>
+          <label for="sweepY1">Plot <select id="sweepY1"></select></label>
+          <label for="sweepY2">and <select id="sweepY2"></select></label>
+          <span id="sweepStatus"></span>
+        </div>
+      </div>
+      <div id="ctlHoles" hidden><div class="chartctl"><label for="holeMetric">Show <select id="holeMetric"></select></label></div></div>
+      <div id="ctlProfile" hidden><div class="chartctl"><label for="profileQ">Show <select id="profileQ"><option value="u">Velocity</option><option value="g">Shear rate</option><option value="mu">Viscosity</option><option value="pc">Coagulation propensity</option></select></label><span>Vertical line through vessel and catheter centers, live.</span></div></div>
+      <canvas id="chart" aria-label="Chart"></canvas>
+      <div class="exports">
+        <button class="btn small" id="exportChart" type="button">Export chart data (CSV)</button>
+        <button class="btn small" id="exportReport" type="button">Export full report (CSV)</button>
+        <button class="btn small" id="savePng" type="button">Save view (PNG)</button>
+        <button class="btn small" id="downloadHtml" type="button">Download this simulator (HTML)</button>
+      </div>
+    </section>
+  </main>
+
+  <aside class="rail side" aria-label="Results">
+    <section class="panel xs">
+      <div class="xshead"><h2>Cross-section</h2><select id="xsField" aria-label="Cross-section color"><option value="u">Velocity</option><option value="g">Shear rate</option><option value="mu">Viscosity</option><option value="pc">Coagulation propensity</option></select></div>
+      <canvas id="xs" aria-label="Cross-section of the vessel looking downstream"></canvas>
+      <div class="xsnote">Looking downstream. Right side faces the side-view camera. Drag the catheter to move it; drag a hole marker to rotate it.</div>
+    </section>
+    <div id="metrics" style="display:flex;flex-direction:column;gap:12px"></div>
+    <details class="sec methods">
+      <summary>Methods, assumptions &amp; references</summary>
+      <div class="secbody">
+        <p><b>Cross-section flow.</b> The axial momentum equation <code>ρ∂u/∂t = G(t) + ∇·(μ∇u)</code> is solved on a 65×65 grid with an implicit ADI scheme and cut-cell walls, so eccentric catheters, deposited clot and pulsatile (Womersley) effects are resolved, not assumed.</p>
+        <p><b>Blood.</b> Carreau model (Cho &amp; Kensey 1991): μ₀ = 56 mPa·s, μ∞ = 3.45 mPa·s, λ = 3.313 s, n = 0.3568, scaled by exp[2.31(Hct − 0.45)]. Density 1060 kg/m³. Newtonian option uses μ∞.</p>
+        <p><b>Flow coupling.</b> Q = Q₀ / [(1 − f) + f·R<sub>cath</sub>/R₀], where f is the resistance share of the segment. f = 1 reproduces the fixed-pressure model of Nifong &amp; McDevitt (2011). Waveforms are typical adult shapes scaled to the mean flow.</p>
+        <p><b>Past the tip.</b> The profile redevelops toward Poiseuille over L = D[0.6/(1 + 0.035Re) + 0.056Re] (Durst et al. 2005), leaving a slow wake behind the tip.</p>
+        <p><b>Infusion network.</b> Lumen segments use Hagen–Poiseuille (Blasius above Re 2300). Each hole is a wall channel plus Sampson orifice resistance plus an inertial loss (K = 2.7), with pressure regain at each branch. Solved by shooting on tip pressure.</p>
+        <p><b>Withdrawal mode.</b> Blood enters each hole as a point sink, so its capture radius is √(q/2πU) in a cross-flow U. Inlet loss K = 1.5. Merging flows inside the lumen lose pressure by ρ(v₂² − v₁²). A hole closer than 0.6 diameters to the vessel wall is sealed by suction. A fibrin sheath acts as a flap valve that blocks withdrawal but not infusion. Blood is damaged by shear in the holes and along the lumen.</p>
+        <p><b>Jets.</b> Trajectory in cross-flow y/rd = 2.05(x/rd)^0.28 (Pratte &amp; Baines 1967). Centreline decay u = 6.2·d·u₀/s. Wall impact shear τ = 0.44ρu²Re^−½ (Phares et al. 2000). Acute endothelial damage near 38 Pa (Fry 1968).</p>
+        <p><b>Blood damage.</b> Giersiepen et al. (1990) power laws: hemolysis 3.62×10⁻⁵·t^0.785·τ^2.416 %, platelet LDH release 3.31×10⁻⁶·t^0.77·τ^3.075 %. Exposed blood flow from jet entrainment 0.32·q·x/d (Ricou &amp; Spalding 1961), capped at the local blood flow. 5 L blood volume, Hb ≈ Hct/3.</p>
+        <p><b>Clot kinetics (semi-empirical).</b> Coagulation propensity P(γ̇) = 1/[1 + (γ̇/30 s⁻¹)^2.5], reflecting the shear threshold of coagulation (Shen et al. 2008). Growth dδ/dt = J·H·P·(I + δ/δ₀) + platelet term − k(1 + τ/10 Pa)δ with J = 4 µm/h, δ₀ = 50 µm, k = 0.04 h⁻¹. Catheter surfaces add shear-independent protein adsorption. Holes wash out with flow velocity v/(v + 2 cm/s), and clot inside a hole is shielded from lysis (rate × 0.3). Calibrated to known trends: fibrin sheaths form within days, and stasis plus hypercoagulability propagates thrombus. Not validated against patient outcomes.</p>
+        <p><b>Thrombosis risk index.</b> Virchow's triad: stasis (flow and wall-shear loss), endothelial injury (catheter-to-vessel ratio above 0.45 per Sharp et al. 2015, wall contact, jet impact) and hypercoagulability (patient, drugs, material, platelet activation). Index = 100(1 − e^(−3.5·S·E·H)). Use it to compare designs, not as a probability.</p>
+        <p><b>Limits.</b> Rigid straight vessel, no valves or branches, catheter straight and parallel to the axis, cells drawn enlarged and not to scale. Educational model. Not for clinical decisions.</p>
+        <p id="validation"><b>Grid check.</b> Running…</p>
+        <ol>
+          <li>Cho YI, Kensey KR. Biorheology 1991;28:241–262.</li>
+          <li>Nifong TP, McDevitt TJ. Chest 2011;140:48–53.</li>
+          <li>Sharp R et al. Int J Nurs Stud 2015;52:677–685.</li>
+          <li>Giersiepen M et al. Int J Artif Organs 1990;13:300–306.</li>
+          <li>Fry DL. Circ Res 1968;22:165–197.</li>
+          <li>Shen F et al. Arterioscler Thromb Vasc Biol 2008;28:2035–2041.</li>
+          <li>Schneider SW et al. PNAS 2007;104:7899–7903 (vWF unfolding above ~5000 s⁻¹).</li>
+          <li>Pratte BD, Baines WD. J Hydraul Div ASCE 1967;93:53–64.</li>
+          <li>Phares DJ et al. J Fluid Mech 2000;418:351–375.</li>
+          <li>Ricou FP, Spalding DB. J Fluid Mech 1961;11:21–32.</li>
+          <li>Durst F et al. J Fluids Eng 2005;127:1154–1160.</li>
+          <li>Womersley JR. J Physiol 1955;127:553–563.</li>
+        </ol>
+      </div>
+    </details>
+  </aside>
+</div>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const SOURCE_HTML = '<!doctype html>\n' + document.documentElement.outerHTML;
+
+/* ================= constants ================= */
+const TAU = Math.PI * 2, M = 48;
+const RHO_B = 1060, FR_M = 1e-3 / 3, MMHG = 133.322, PSI = 6894.76;
+const CAR = { mu0: 0.056, muInf: 0.00345, lam: 3.313, n: 0.3568 };
+const GAMMA_C = 30, SIPA = 5000, FRY = 38;
+const J_CATH = 4e-6, J_WALL = 4e-6, J_HOLE = 4e-6, J_PLT = 3e-6, DELTA0 = 50e-6, K_LYS = 0.04, V_WASH = 0.02;
+const N_SA = 65, N_SW = 41;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const hctFactor = h => Math.exp(2.31 * (h / 100 - 0.45));
+function visc(g, hf, newt) {
+  if (newt) return CAR.muInf * hf;
+  const x = CAR.lam * g;
+  return hf * (CAR.muInf + (CAR.mu0 - CAR.muInf) * Math.pow(1 + x * x, (CAR.n - 1) / 2));
+}
+const Pc = g => 1 / (1 + Math.pow(Math.max(g, 0) / GAMMA_C, 2.5));
+function interpA(arr, phi) {
+  let x = phi / TAU; x -= Math.floor(x); x *= arr.length;
+  const i = Math.floor(x) % arr.length, f = x - Math.floor(x);
+  return arr[i] * (1 - f) + arr[(i + 1) % arr.length] * f;
+}
+const arrMax = a => { let m = -Infinity; for (const v of a) if (v > m) m = v; return a.length ? m : 0; };
+const arrMin = a => { let m = Infinity; for (const v of a) if (v < m) m = v; return a.length ? m : 0; };
+const arrMean = a => { let s = 0; for (const v of a) s += v; return a.length ? s / a.length : 0; };
+const angDiff = (a, b) => { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; };
+const randn = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v); };
+
+/* ================= tables ================= */
+const INFUSATES = {
+  saline: { name: '0.9% saline', mu: 0.70e-3, rho: 1005 },
+  d5w: { name: '5% dextrose', mu: 0.78e-3, rho: 1017 },
+  iohexol300: { name: 'Iohexol 300 contrast', mu: 6.3e-3, rho: 1349 },
+  iohexol350: { name: 'Iohexol 350 contrast', mu: 10.4e-3, rho: 1406 },
+  iodixanol320: { name: 'Iodixanol 320 contrast', mu: 11.8e-3, rho: 1369 },
+  blood: { name: 'Blood (dialysis return)', mu: 3.5e-3, rho: 1060 }
+};
+const MATERIALS = {
+  pu: { name: 'Polyurethane', f: 1.0, tint: [206, 226, 236] },
+  silicone: { name: 'Silicone', f: 1.1, tint: [232, 234, 230] },
+  pvc: { name: 'PVC / polyethylene', f: 1.6, tint: [222, 234, 214] },
+  hep: { name: 'Heparin-bonded polyurethane', f: 0.55, tint: [204, 216, 244] }
+};
+const COAG = {
+  normal: { name: 'Normal', f: 1 }, postop: { name: 'Post-operative', f: 1.6 }, preg: { name: 'Pregnancy or postpartum', f: 1.7 },
+  cancer: { name: 'Active cancer', f: 2.0 }, thrombophilia: { name: 'Inherited thrombophilia', f: 2.2 }
+};
+const AC = { none: { name: 'None', f: 1 }, prophylactic: { name: 'Prophylactic heparin', f: 0.6 }, therapeutic: { name: 'Therapeutic anticoagulation', f: 0.3 } };
+const WAVES = { steady: 'Steady', venous: 'Peripheral vein (respiratory)', central: 'Central vein (S, D, A waves)', triphasic: 'Muscular artery (triphasic)', lowres: 'Low-resistance artery', coronary: 'Coronary (diastolic)' };
+const GAUGES = [[24, 0.7], [22, 0.9], [20, 1.1], [18, 1.3], [16, 1.7], [14, 2.1]];
+
+const pg = (x, m, s) => { let v = 0; for (let k = -1; k <= 1; k++) { const d = (x + k - m) / s; v += Math.exp(-0.5 * d * d); } return v; };
+const SHAPES = {
+  central: x => 0.35 + 1.4 * pg(x, .30, .08) + 0.9 * pg(x, .62, .09) - 0.55 * pg(x, .93, .035),
+  triphasic: x => 0.04 + 5.0 * pg(x, .13, .045) - 1.6 * pg(x, .30, .04) + 0.7 * pg(x, .45, .05),
+  lowres: x => 0.55 + 2.4 * pg(x, .13, .05) + 0.6 * pg(x, .38, .06),
+  coronary: x => 0.35 + 0.5 * pg(x, .12, .05) + 1.6 * pg(x, .55, .15)
+};
+const SHAPE_MEAN = {};
+for (const k in SHAPES) { let s = 0; for (let i = 0; i < 2000; i++) s += SHAPES[k](i / 2000); SHAPE_MEAN[k] = s / 2000; }
+function waveFactor(type, t, hr, rr) {
+  const fc = hr / 60, fr = rr / 60;
+  if (type === 'steady') return 1;
+  if (type === 'venous') return (1 + 0.3 * Math.sin(TAU * fr * t)) * (1 + 0.06 * Math.sin(TAU * fc * t));
+  if (type === 'central') return SHAPES.central((t * fc) % 1) / SHAPE_MEAN.central * (1 + 0.25 * Math.sin(TAU * fr * t));
+  return SHAPES[type]((((t * fc) % 1) + 1) % 1) / SHAPE_MEAN[type];
+}
+function cyclePeriod(Pp) {
+  if (Pp.wave === 'venous' || Pp.wave === 'central') return 60 / Pp.rr;
+  if (Pp.wave === 'steady') return 2;
+  return 60 / Pp.hr;
+}
+
+let HID = 1;
+function genHoles(n, spacing, first, pattern, dia, taper) {
+  const out = []; let pos = first;
+  for (let i = 0; i < n; i++) {
+    let ang = 0, d = first + i * spacing;
+    switch (pattern) {
+      case 'inline': ang = 0; break;
+      case 'front': ang = 90; break;
+      case 'stagger': ang = i % 2 ? 180 : 0; break;
+      case 'opposed': ang = i % 2 ? 180 : 0; d = first + Math.floor(i / 2) * spacing; break;
+      case 'spiral90': ang = (i * 90) % 360; break;
+      case 'spiral120': ang = (i * 120) % 360; break;
+      case 'helix60': ang = (i * 60) % 360; break;
+    }
+    const tpos = n > 1 ? i / (n - 1) : 0;           // 0 = most distal
+    const scale = Math.pow(taper, 0.5 - tpos);     // taper = distal/proximal ratio
+    out.push({ id: HID++, dist: +d.toFixed(2), ang, dia: +(dia * scale).toFixed(3), occ: 0 });
+    pos = d;
+  }
+  return out;
+}
+
+const PRESETS = {
+  picc: { label: 'PICC in basilic vein', D: 5.0, Q: 60, wave: 'venous', hr: 72, rr: 14, Pv: 8, vtype: 'vein', share: 0.5, fr: 5, wallT: 0.28, len: 45, ecc: 0, mat: 'pu', endHole: true, endDia: null, infusate: 'saline', inf: 2.0, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
+  piv: { label: 'Peripheral IV (20 G), forearm vein', D: 3.0, Q: 20, wave: 'venous', hr: 72, rr: 14, Pv: 10, vtype: 'vein', share: 0.5, fr: 3.3, wallT: 0.15, len: 3.2, ecc: 0.35, mat: 'pu', endHole: true, endDia: null, infusate: 'saline', inf: 1.7, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
+  power: { label: 'Contrast power injection (18 G, 5 mL/s)', D: 4.5, Q: 45, wave: 'venous', hr: 80, rr: 14, Pv: 10, vtype: 'vein', share: 0.5, fr: 3.9, wallT: 0.15, len: 3.2, ecc: 0, mat: 'pu', endHole: true, endDia: null, infusate: 'iohexol350', inf: 300, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
+  svc: { label: 'PICC tip in superior vena cava', D: 18, Q: 1800, wave: 'central', hr: 72, rr: 14, Pv: 5, vtype: 'vein', share: 0.2, fr: 5, wallT: 0.28, len: 45, ecc: 0.2, mat: 'pu', endHole: true, endDia: null, infusate: 'saline', inf: 2.0, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
+  dialysis: { label: 'Dialysis catheter, return lumen', mode: 'infuse', D: 20, Q: 2000, wave: 'central', hr: 75, rr: 14, Pv: 5, vtype: 'vein', share: 0.2, fr: 14.5, wallT: 1.2, len: 24, ecc: 0.15, mat: 'pu', endHole: true, endDia: null, infusate: 'blood', inf: 300, hct: 32, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => genHoles(8, 6, 4, 'spiral90', 1.0, 1) },
+  dialysisArt: { label: 'Dialysis catheter, withdrawal lumen', mode: 'aspirate', D: 20, Q: 2000, wave: 'central', hr: 75, rr: 14, Pv: 5, vtype: 'vein', share: 0.2, fr: 14.5, wallT: 1.2, len: 24, ecc: 0.15, mat: 'pu', endHole: true, endDia: null, infusate: 'blood', inf: 300, hct: 32, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => genHoles(8, 6, 4, 'spiral90', 1.0, 1) },
+  piccDraw: { label: 'Blood draw through a PICC', mode: 'aspirate', D: 5.0, Q: 60, wave: 'venous', hr: 72, rr: 14, Pv: 8, vtype: 'vein', share: 0.5, fr: 5, wallT: 0.28, len: 45, ecc: 0, mat: 'pu', endHole: true, endDia: null, infusate: 'saline', inf: 10, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
+  cdt: { label: 'Thrombolysis infusion catheter, femoral vein', D: 11, Q: 250, wave: 'venous', hr: 76, rr: 14, Pv: 12, vtype: 'vein', share: 0.4, fr: 5, wallT: 0.25, len: 90, ecc: 0, mat: 'pu', endHole: false, endDia: null, infusate: 'saline', inf: 1.0, hct: 40, rheo: 'carreau', coag: 'normal', ac: 'therapeutic', holes: () => genHoles(12, 4, 3, 'spiral90', 0.3, 1) },
+  aline: { label: 'Arterial line (20 G), radial artery', D: 2.5, Q: 25, wave: 'triphasic', hr: 72, rr: 14, Pv: 90, vtype: 'artery', share: 0.1, fr: 3.3, wallT: 0.15, len: 4.5, ecc: 0, mat: 'pu', endHole: true, endDia: null, infusate: 'saline', inf: 0.05, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
+  sheath: { label: 'Femoral artery sheath (6 Fr)', D: 7.5, Q: 350, wave: 'triphasic', hr: 72, rr: 14, Pv: 95, vtype: 'artery', share: 0.1, fr: 7.8, wallT: 0.25, len: 11, ecc: 0, mat: 'pu', endHole: true, endDia: null, infusate: 'saline', inf: 0.05, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] }
+};
+
+/* ================= state ================= */
+const P = {};
+const V = {
+  playing: true, slowmo: 0.05, zoom: 1, viewX0: null, overlay: 'none', cells: 'slice', labels: true, clockRate: 6,
+  selected: null, hover: null, tab: 'live', liveSel: ['flow', 'wallshear', 'risk'], xAxis: 'real',
+  sweepX: 'fr', sweepY1: 'flowRed', sweepY2: 'risk', holeMetric: 'share', profileQ: 'u', xsField: 'u'
+};
+const CL = { cath: new Float64Array(M), wall: new Float64Array(M), down: new Float64Array(M), end: 0, hours: 0, version: 0, cathB: new Float64Array(M), wallB: new Float64Array(M), proj: null };
+let SA = null, lastRates = null;
+const saCache = {}, swCache = {};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  Object.assign(P, JSON.parse(JSON.stringify(Object.assign({}, p, { holes: undefined }))));
+  P.preset = key; P.holes = p.holes(); P.mode = p.mode || 'infuse';
+  V.selected = null; V.viewX0 = null; V.zoom = 1;
+  resetClot();
+}
+function resetClot() {
+  CL.cath.fill(0); CL.wall.fill(0); CL.down.fill(0); CL.end = 0; CL.hours = 0;
+  CL.cathB.fill(0); CL.wallB.fill(0); CL.version++;
+  for (const h of P.holes || []) h.occ = 0;
+}
+
+/* ================= cross-section solver ================= */
+class Section {
+  constructor(N, R, a, e, wc, cc) {
+    this.N = N; this.R = R; this.a = a; this.e = e;
+    this.wc = wc ? Float64Array.from(wc) : null; this.cc = cc ? Float64Array.from(cc) : null;
+    const h = this.h = 2 * R / (N - 1), NN = N * N;
+    const F = () => new Float64Array(NN);
+    this.fl = new Uint8Array(NN);
+    this.tE = F(); this.tW = F(); this.tN = F(); this.tS = F(); this.w = F();
+    this.u = F(); this.mu = F().fill(CAR.muInf); this.gd = F();
+    this.cE = F(); this.cW = F(); this.cN = F(); this.cS = F();
+    this.t1 = F(); this.t2 = F(); this.ug = F(); this.zero = F();
+    this.la = new Float64Array(N); this.lb = new Float64Array(N); this.lc = new Float64Array(N);
+    this.lr = new Float64Array(N); this.lx = new Float64Array(N); this.cp = new Float64Array(N); this.dp = new Float64Array(N);
+    this.G = 0; this.gapCache = new Map();
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) this.fl[j * N + i] = this.fluid(R - j * h, -R + i * h) ? 1 : 0;
+    for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) {
+      const k = j * N + i; if (!this.fl[k]) continue;
+      const y = R - j * h, z = -R + i * h;
+      this.tE[k] = this.fl[k + 1] ? 1 : this.edgeT(y, z, 0, h);
+      this.tW[k] = this.fl[k - 1] ? 1 : this.edgeT(y, z, 0, -h);
+      this.tN[k] = this.fl[k - N] ? 1 : this.edgeT(y, z, h, 0);
+      this.tS[k] = this.fl[k + N] ? 1 : this.edgeT(y, z, -h, 0);
+      let frac = 1;
+      if (!(this.fl[k + 1] && this.fl[k - 1] && this.fl[k - N] && this.fl[k + N] && this.fl[k - N - 1] && this.fl[k - N + 1] && this.fl[k + N - 1] && this.fl[k + N + 1])) {
+        let c = 0;
+        for (let p = 0; p < 4; p++) for (let q = 0; q < 4; q++) if (this.fluid(y + (p - 1.5) * h / 4, z + (q - 1.5) * h / 4)) c++;
+        frac = c / 16;
+      }
+      this.w[k] = frac * h * h;
+    }
+    let ar = 0;
+    for (let k = 0; k < 360; k++) { const ph = k / 360 * TAU; ar += 0.5 * this.rw(ph) ** 2 * (TAU / 360); if (a > 0) ar -= 0.5 * this.rc(ph) ** 2 * (TAU / 360); }
+    this.areaGeo = ar;
+  }
+  rw(phi) { return this.R - (this.wc ? interpA(this.wc, phi) : 0); }
+  rc(phi) { return this.a + (this.cc ? interpA(this.cc, phi) : 0); }
+  inCath(y, z) { if (this.a <= 0) return false; const dy = y - this.e; return Math.hypot(dy, z) < this.rc(Math.atan2(z, dy)); }
+  fluid(y, z) { return Math.hypot(y, z) < this.rw(Math.atan2(z, y)) && !this.inCath(y, z); }
+  edgeT(y, z, dy, dz) {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (this.fluid(y + dy * m, z + dz * m)) lo = m; else hi = m; }
+    return Math.max(0.06, (lo + hi) / 2);
+  }
+  clone() {
+    const s = Object.create(Section.prototype);
+    for (const k of Object.keys(this)) {
+      const v = this[k];
+      s[k] = (v && v.constructor && (v instanceof Float64Array || v instanceof Uint8Array)) ? v.slice() : v;
+    }
+    s.gapCache = new Map(); return s;
+  }
+  warmFrom(o) {
+    if (!o || o.N !== this.N || Math.abs(o.R - this.R) > 1e-12) return;
+    for (let k = 0; k < this.u.length; k++) if (this.fl[k] && o.fl[k]) { this.u[k] = o.u[k]; this.mu[k] = o.mu[k]; }
+    this.warm = true;
+  }
+  shear(u) {
+    const N = this.N, h = this.h, fl = this.fl, gd = this.gd;
+    for (let k = N; k < N * N - N; k++) {
+      if (!fl[k]) { gd[k] = 0; continue; }
+      const hE = this.tE[k] * h, hW = this.tW[k] * h, hN = this.tN[k] * h, hS = this.tS[k] * h, uP = u[k];
+      const uE = fl[k + 1] ? u[k + 1] : 0, uW = fl[k - 1] ? u[k - 1] : 0, uN = fl[k - N] ? u[k - N] : 0, uS = fl[k + N] ? u[k + N] : 0;
+      const dz = ((uE - uP) * hW / hE + (uP - uW) * hE / hW) / (hE + hW);
+      const dy = ((uN - uP) * hS / hN + (uP - uS) * hN / hS) / (hN + hS);
+      gd[k] = Math.sqrt(dz * dz + dy * dy);
+    }
+  }
+  updateMu(hf, newt, relax) {
+    const fl = this.fl, mu = this.mu, gd = this.gd;
+    for (let k = 0; k < mu.length; k++) if (fl[k]) { const m = visc(gd[k], hf, newt); mu[k] = relax ? relax * mu[k] + (1 - relax) * m : m; }
+  }
+  coeffs() {
+    const N = this.N, h = this.h, fl = this.fl, mu = this.mu;
+    for (let k = N; k < N * N - N; k++) {
+      if (!fl[k]) continue;
+      const hE = this.tE[k] * h, hW = this.tW[k] * h, hN = this.tN[k] * h, hS = this.tS[k] * h, m = mu[k];
+      const hz = 0.5 * (hE + hW), hy = 0.5 * (hN + hS);
+      this.cE[k] = (fl[k + 1] ? 0.5 * (m + mu[k + 1]) : m) / (hE * hz);
+      this.cW[k] = (fl[k - 1] ? 0.5 * (m + mu[k - 1]) : m) / (hW * hz);
+      this.cN[k] = (fl[k - N] ? 0.5 * (m + mu[k - N]) : m) / (hN * hy);
+      this.cS[k] = (fl[k + N] ? 0.5 * (m + mu[k + N]) : m) / (hS * hy);
+    }
+  }
+  thomas(n) {
+    const a = this.la, b = this.lb, c = this.lc, r = this.lr, x = this.lx, cp = this.cp, dp = this.dp;
+    cp[0] = c[0] / b[0]; dp[0] = r[0] / b[0];
+    for (let i = 1; i < n; i++) { const m = b[i] - a[i] * cp[i - 1]; cp[i] = c[i] / m; dp[i] = (r[i] - a[i] * dp[i - 1]) / m; }
+    x[n - 1] = dp[n - 1];
+    for (let i = n - 2; i >= 0; i--) x[i] = dp[i] - cp[i] * x[i + 1];
+  }
+  adi(uin, G, r, out) {
+    const N = this.N, fl = this.fl, cE = this.cE, cW = this.cW, cN = this.cN, cS = this.cS, t1 = this.t1;
+    const A = this.la, B = this.lb, C = this.lc, Rr = this.lr, X = this.lx;
+    for (let j = 0; j < N; j++) {
+      const base = j * N;
+      for (let i = 0; i < N; i++) {
+        const k = base + i;
+        if (!fl[k]) { A[i] = 0; B[i] = 1; C[i] = 0; Rr[i] = 0; continue; }
+        const uN = fl[k - N] ? uin[k - N] : 0, uS = fl[k + N] ? uin[k + N] : 0;
+        B[i] = r + cE[k] + cW[k];
+        A[i] = fl[k - 1] ? -cW[k] : 0;
+        C[i] = fl[k + 1] ? -cE[k] : 0;
+        Rr[i] = r * uin[k] + cN[k] * uN + cS[k] * uS - (cN[k] + cS[k]) * uin[k] + G;
+      }
+      this.thomas(N);
+      for (let i = 0; i < N; i++) t1[base + i] = X[i];
+    }
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        const k = j * N + i;
+        if (!fl[k]) { A[j] = 0; B[j] = 1; C[j] = 0; Rr[j] = 0; continue; }
+        const uE = fl[k + 1] ? t1[k + 1] : 0, uW = fl[k - 1] ? t1[k - 1] : 0;
+        B[j] = r + cN[k] + cS[k];
+        A[j] = fl[k - N] ? -cN[k] : 0;
+        C[j] = fl[k + N] ? -cS[k] : 0;
+        Rr[j] = r * t1[k] + cE[k] * uE + cW[k] * uW - (cE[k] + cW[k]) * t1[k] + G;
+      }
+      this.thomas(N);
+      for (let j = 0; j < N; j++) out[j * N + i] = X[j];
+    }
+  }
+  flow(u) { let s = 0; const w = this.w; for (let k = 0; k < u.length; k++) s += w[k] * u[k]; return s; }
+  stepQ(r, Qt) {
+    this.adi(this.u, 0, r, this.t2); this.adi(this.zero, 1, r, this.ug);
+    const Qh = this.flow(this.t2), Qg = this.flow(this.ug), G = (Qt - Qh) / Qg;
+    const u = this.u, t2 = this.t2, ug = this.ug;
+    for (let k = 0; k < u.length; k++) u[k] = t2[k] + G * ug[k];
+    this.G = G; return G;
+  }
+  stepG(r, G) { this.adi(this.u, G, r, this.t2); this.u.set(this.t2); this.G = G; }
+  steady(o) {
+    const muMin = CAR.muInf * o.hf, muMax = (o.newt ? CAR.muInf : CAR.mu0) * o.hf;
+    const lmin = muMin * (2.405 / this.R) ** 2 * 0.5, lmax = 8 * muMax / (this.h * this.h);
+    const K = 8, rs = [];
+    for (let i = 0; i < K; i++) rs.push(lmin * Math.pow(lmax / lmin, (i + 0.5) / K));
+    const ord = [7, 0, 6, 1, 5, 2, 4, 3].map(i => rs[i]);
+    let last = NaN, it;
+    for (it = 0; it < o.maxIt; it++) {
+      this.shear(this.u); this.updateMu(o.hf, o.newt, (it === 0 && !this.warm) ? 0 : 0.5); this.coeffs();
+      const r = ord[it % K];
+      if (o.Q !== undefined) this.stepQ(r, o.Q); else this.stepG(r, o.G);
+      if (it % K === K - 1) {
+        const v = o.Q !== undefined ? this.G : this.flow(this.u);
+        if (it >= 2 * K - 1 && Math.abs(v - last) <= o.tol * Math.abs(v)) { it++; break; }
+        last = v;
+      }
+    }
+    this.warm = true; this.shear(this.u);
+    return it;
+  }
+  sampleU(y, z, arr) {
+    arr = arr || this.u;
+    const h = this.h, N = this.N, fi = (z + this.R) / h, fj = (this.R - y) / h, i = Math.floor(fi), j = Math.floor(fj);
+    if (i < 0 || j < 0 || i >= N - 1 || j >= N - 1) return 0;
+    const fx = fi - i, fy = fj - j, k = j * N + i;
+    return arr[k] * (1 - fx) * (1 - fy) + arr[k + 1] * fx * (1 - fy) + arr[k + N] * (1 - fx) * fy + arr[k + N + 1] * fx * fy;
+  }
+  sampleF(arr, y, z) {
+    const h = this.h, N = this.N, fi = (z + this.R) / h, fj = (this.R - y) / h, i = Math.floor(fi), j = Math.floor(fj);
+    if (i < 0 || j < 0 || i >= N - 1 || j >= N - 1) return 0;
+    const fx = fi - i, fy = fj - j, k = j * N + i, fl = this.fl;
+    const w0 = fl[k] * (1 - fx) * (1 - fy), w1 = fl[k + 1] * fx * (1 - fy), w2 = fl[k + N] * (1 - fx) * fy, w3 = fl[k + N + 1] * fx * fy, s = w0 + w1 + w2 + w3;
+    return s > 0 ? (arr[k] * w0 + arr[k + 1] * w1 + arr[k + N] * w2 + arr[k + N + 1] * w3) / s : 0;
+  }
+  gapAlong(y, z, ny, nz) {
+    const st = this.h * 0.25, max = 2.2 * this.R;
+    let s = st * 0.05;
+    while (s < max && !this.fluid(y + ny * s, z + nz * s)) s += st * 0.1;
+    const s0 = s;
+    while (s < max && this.fluid(y + ny * s, z + nz * s)) s += st;
+    let a = Math.max(s0, s - st), b = s;
+    for (let i = 0; i < 10; i++) { const m = (a + b) / 2; if (this.fluid(y + ny * m, z + nz * m)) a = m; else b = m; }
+    return (a + b) / 2;
+  }
+  probe(y0, z0, ny, nz, gap) {
+    const h = this.h;
+    let g;
+    if (gap > 4.5 * h) { const d = 1.5 * h; const u1 = this.sampleU(y0 + ny * d, z0 + nz * d), u2 = this.sampleU(y0 + 2 * ny * d, z0 + 2 * nz * d); g = (4 * u1 - u2) / (2 * d); }
+    else { const um = this.sampleU(y0 + ny * gap / 2, z0 + nz * gap / 2); g = 4 * um / Math.max(gap, 1e-9); }
+    return { g: Math.abs(g), signed: g, gap };
+  }
+  wallShear(phi) {
+    const c = Math.cos(phi), s = Math.sin(phi), rw = this.rw(phi), y0 = rw * c, z0 = rw * s;
+    const key = 'w' + phi.toFixed(5);
+    let gap = this.gapCache.get(key);
+    if (gap === undefined) { gap = this.gapAlong(y0, z0, -c, -s); this.gapCache.set(key, gap); }
+    return this.probe(y0, z0, -c, -s, gap);
+  }
+  cathShear(phi) {
+    const c = Math.cos(phi), s = Math.sin(phi), rc = this.rc(phi), y0 = this.e + rc * c, z0 = rc * s;
+    const key = 'c' + phi.toFixed(5);
+    let gap = this.gapCache.get(key);
+    if (gap === undefined) { gap = this.gapAlong(y0, z0, c, s); this.gapCache.set(key, gap); }
+    return this.probe(y0, z0, c, s, gap);
+  }
+}
+
+/* ================= infusion network ================= */
+function holeNetwork(Pp, ri, endOcc, extra) {
+  const asp = Pp.mode === 'aspirate';
+  const inf = asp ? { mu: CAR.muInf * hctFactor(Pp.hct), rho: RHO_B } : INFUSATES[Pp.infusate], mu = inf.mu, rho = inf.rho;
+  const ex = j => (extra && extra.holes[j]) || 0;
+  endOcc = 1 - (1 - endOcc) * (1 - ((extra && extra.end) || 0));
+  const t = Pp.wallT / 1000, L = Pp.len / 100, Qin = Pp.inf / 6e7, Al = Math.PI * ri * ri;
+  const endR0 = Math.min(ri, Pp.endDia ? Pp.endDia / 2000 : ri);
+  const endR = endR0 * Math.sqrt(Math.max(0, 1 - endOcc));
+  const endClosed = !Pp.endHole || endOcc > 0.97 || endR < 4e-6;
+  const coef = (r, isEnd) => { const A = Math.PI * r * r; return [(isEnd ? 0 : 8 * mu * t / (Math.PI * r ** 4)) + 3 * mu / r ** 3, (asp ? 1.5 : isEnd ? 1.0 : 2.7) * rho / (2 * A * A)]; };
+  const JF = asp ? 1.0 : -0.25;
+  const qOf = (dp, c) => dp <= 0 ? 0 : (-c[0] + Math.sqrt(c[0] * c[0] + 4 * c[1] * dp)) / (2 * c[1]);
+  const segDp = (Ls, q) => {
+    if (Ls <= 0 || q <= 0) return 0;
+    const v = q / Al, Re = rho * v * 2 * ri / mu, lam = 8 * mu * Ls * q / (Math.PI * ri ** 4);
+    if (Re < 2300) return lam;
+    return Math.max(lam, 0.316 * Math.pow(Re, -0.25) * (Ls / (2 * ri)) * rho * v * v / 2);
+  };
+  const vel = q => q / Al;
+  const list = Pp.holes.map((h, idx) => {
+    const occ = 1 - (1 - (h.occ || 0)) * (1 - ex(idx));
+    const r0 = Math.min(h.dia / 2000, ri * 0.98), re = r0 * Math.sqrt(Math.max(0, 1 - occ));
+    const closed = occ > 0.97 || re < 4e-6;
+    return { idx, dist: h.dist / 1000, r0, re, closed, c: closed ? null : coef(re, false) };
+  }).sort((A, B) => A.dist - B.dist);
+  const endC = endClosed ? null : coef(endR, true);
+  const res = { asp, mu, rho, Qin, holes: Pp.holes.map(() => ({ q: 0, v: 0, re: 0, p: 0 })), end: { q: 0, v: 0, r: endR, r0: endR0, open: !endClosed }, dpHub: 0, blocked: false, lumenV: vel(Qin), lumenRe: rho * vel(Qin) * 2 * ri / mu, order: list.map(h => h.idx) };
+  list.forEach(h => { res.holes[h.idx].re = h.re; });
+  const anyOpen = list.some(h => !h.closed);
+  if (Qin <= 0) { res.dpHub = 0; return res; }
+  if (endClosed && !anyOpen) { res.blocked = true; res.dpHub = Infinity; return res; }
+  const march = g => {
+    let p = g, F = endClosed ? 0 : qOf(g, endC), prevX = 0, first = true;
+    const qs = new Array(list.length), ps = new Array(list.length);
+    for (let j = 0; j < list.length; j++) {
+      const h = list[j];
+      if (!(first && endClosed)) p += segDp(h.dist - prevX, F);
+      first = false;
+      const q = h.closed ? 0 : qOf(p, h.c);
+      const Fu = F + q;
+      ps[j] = p;
+      p += JF * rho * (vel(Fu) ** 2 - vel(F) ** 2);
+      qs[j] = q; F = Fu; prevX = h.dist;
+    }
+    return { F, p, qs, ps, prevX };
+  };
+  let lo = 0, hi = 200;
+  while (march(hi).F < Qin && hi < 1e10) hi *= 4;
+  for (let i = 0; i < 64; i++) { const m = 0.5 * (lo + hi); if (march(m).F < Qin) lo = m; else hi = m; }
+  const g = 0.5 * (lo + hi), r = march(g);
+  list.forEach((h, j) => { const o = res.holes[h.idx]; o.q = r.qs[j]; o.v = h.closed ? 0 : r.qs[j] / (Math.PI * h.re * h.re); o.p = r.ps[j]; });
+  if (!endClosed) { res.end.q = qOf(g, endC); res.end.v = res.end.q / (Math.PI * endR * endR); }
+  res.dpHub = r.p + segDp(Math.max(0, L - r.prevX), Qin) + 1.5 * rho * vel(Qin) ** 2 / 2;
+  res.pTip = g;
+  return res;
+}
+
+/* ================= jets ================= */
+function jetCalc(q, v, d, gap, Uc, inf, muInf, Qblood) {
+  const J = { q, v, d, gap, impinge: false, tauImp: 0, uImp: 0, r: 0, pen: 0, HI: 0, PAS: 0, Qent: 0, gJet: 0, tauJet: 0, Re: 0 };
+  if (!(q > 0) || !(v > 0) || !(d > 0)) return J;
+  const r = v / Uc, rd = r * d;
+  J.r = r; J.Re = inf.rho * v * d / inf.mu;
+  J.pen = Math.min(isFinite(gap) ? gap : Infinity, 2.05 * rd * Math.pow(10, 0.28));
+  if (isFinite(gap) && gap < 7.4 * rd) {
+    J.impinge = true;
+    const xi = rd * Math.pow(gap / (2.05 * rd), 1 / 0.28), s = Math.hypot(xi, gap);
+    J.uImp = v * Math.min(1, 6.2 * d / s);
+    const ReI = RHO_B * J.uImp * d / muInf;
+    J.tauImp = 0.44 * RHO_B * J.uImp * J.uImp / Math.sqrt(Math.max(ReI, 1));
+  }
+  J.gJet = 8 * v / d;
+  J.tauJet = muInf * J.gJet + 0.012 * RHO_B * v * v * (J.Re * J.Re / (J.Re * J.Re + 4e6));
+  const t = Math.min(0.2, 10 * d / v);
+  J.HI = 3.62e-5 * Math.pow(t, 0.785) * Math.pow(J.tauJet, 2.416);
+  J.PAS = 3.31e-6 * Math.pow(t, 0.77) * Math.pow(J.tauJet, 3.075);
+  const Lr = J.impinge ? Math.max(1, gap / d) : 10;
+  J.Qent = Math.min(0.32 * q * Math.min(10, Lr), Math.max(Qblood, 0));
+  return J;
+}
+
+function giersiepen(t, tau) { return { HI: 3.62e-5 * Math.pow(t, 0.785) * Math.pow(tau, 2.416), PAS: 3.31e-6 * Math.pow(t, 0.77) * Math.pow(tau, 3.075) }; }
+function inletCalc(q, v, d, gap, Uc, muB) {
+  const J = { q, v, d, gap, inlet: true, impinge: false, tauImp: 0, r: 0, pen: 0, HI: 0, PAS: 0, Qent: 0, gJet: 0, tauJet: 0, Re: 0, rc: 0 };
+  if (!(q > 0) || !(v > 0) || !(d > 0)) return J;
+  J.Re = RHO_B * v * d / muB;
+  J.rc = Math.min(isFinite(gap) ? gap : Infinity, Math.max(d / 2, Math.sqrt(q / (2 * Math.PI * Uc))));
+  J.gJet = 8 * v / d;
+  J.tauJet = muB * J.gJet + 0.012 * RHO_B * v * v * (J.Re * J.Re / (J.Re * J.Re + 4e6));
+  const g = giersiepen(Math.min(0.2, 10 * d / v), J.tauJet);
+  J.HI = g.HI; J.PAS = g.PAS; J.Qent = q;
+  return J;
+}
+
+/* ================= clot kinetics ================= */
+function clotFactors(Pp) {
+  const coag = COAG[Pp.coag].f, ac = AC[Pp.ac].f;
+  return { Hc: coag * ac * MATERIALS[Pp.mat].f, Hw: coag * ac, Hp: Math.sqrt(coag) * (Pp.ac === 'therapeutic' ? 0.8 : 1) };
+}
+function clotRates(m, Pp, st) {
+  const { Hc, Hw, Hp } = clotFactors(Pp);
+  const dc = new Float64Array(M), dw = new Float64Array(M), dd = new Float64Array(M);
+  for (let k = 0; k < M; k++) {
+    const g = m.cathG[k], tau = m.cathTau[k], d = st.cath[k], gap = m.cathGap[k];
+    dc[k] = J_CATH * Hc * (0.3 + 0.7 * Pc(g)) * (1 + d / DELTA0) * (gap / (gap + 1e-4)) + J_PLT * 0.3 * Math.cbrt(g / 1000) * Hp - K_LYS * (1 + tau / 10) * d;
+    const gw = m.wallG[k], tw = m.wallTau[k], dW = st.wall[k], gapw = m.wallGap[k], I = m.wallI[k];
+    dw[k] = J_WALL * Hw * Pc(gw) * (I + dW / DELTA0) * (gapw / (gapw + 1e-4)) + J_PLT * I * Math.cbrt(gw / 1000) * Hp - K_LYS * (1 + tw / 10) * dW;
+    const dD = st.down[k];
+    dd[k] = J_WALL * Hw * Pc(m.downG) * (0.03 + dD / DELTA0) + J_PLT * 0.03 * Math.cbrt(m.downG / 1000) * Hp - K_LYS * (1 + m.downTau / 10) * dD;
+  }
+  const dh = Pp.holes.map((h, j) => {
+    const r = Math.max(h.dia / 2000, 2e-5), occ = st.holes[j] || 0, W = m.holeWash[j] || 0, g = m.holeG[j] || 0;
+    return (J_HOLE / r) * Hc * Pc(g) * (1 - W) * (1 + occ / 0.2) * Math.sqrt(1 - occ) - 0.3 * K_LYS * occ;
+  });
+  let de = 0;
+  if (Pp.endHole) { const r = Math.max(m.net.end.r0, 2e-5); de = (J_HOLE / r) * Hc * Pc(m.endG) * (1 - m.endWash) * (1 + st.end / 0.2) * Math.sqrt(1 - st.end) - 0.3 * K_LYS * st.end; }
+  return { dc, dw, dd, dh, de };
+}
+function freshState(Pp) { return { cath: new Float64Array(M), wall: new Float64Array(M), down: new Float64Array(M), holes: Pp.holes.map(() => 0), end: 0 }; }
+function integrate(st, r, dt, m) {
+  for (let k = 0; k < M; k++) {
+    st.cath[k] = clamp(st.cath[k] + r.dc[k] * dt, 0, Math.min(1.5e-3, 0.95 * (m.cathGap[k] + st.cath[k])));
+    st.wall[k] = clamp(st.wall[k] + r.dw[k] * dt, 0, 0.92 * m.R);
+    st.down[k] = clamp(st.down[k] + r.dd[k] * dt, 0, 0.92 * m.R);
+  }
+  for (let j = 0; j < st.holes.length; j++) st.holes[j] = clamp(st.holes[j] + r.dh[j] * dt, 0, 1);
+  st.end = clamp(st.end + r.de * dt, 0, 1);
+}
+function muralFraction(wall, R) { let s = 0; for (const d of wall) { const f = Math.min(d / R, 1); s += 1 - (1 - f) ** 2; } return s / wall.length; }
+function project(m, Pp) {
+  const st = { cath: CL.cath.slice(), wall: CL.wall.slice(), down: CL.down.slice(), holes: Pp.holes.map(h => h.occ || 0), end: CL.end };
+  const out = { sheath100: null, firstHole: null, occl: null, dvt: null };
+  const dt = 0.5;
+  const outletsClosed = () => (!Pp.endHole || st.end >= 0.95) && st.holes.every(o => o >= 0.95);
+  for (let t = dt; t <= 720; t += dt) {
+    integrate(st, clotRates(m, Pp, st), dt, m);
+    if (out.sheath100 === null && arrMean(st.cath) >= 100e-6) out.sheath100 = t;
+    if (out.firstHole === null && st.holes.some(o => o >= 0.95)) out.firstHole = t;
+    if (out.occl === null && (Pp.holes.length || Pp.endHole) && outletsClosed()) out.occl = t;
+    if (out.dvt === null && Math.max(muralFraction(st.wall, m.R), muralFraction(st.down, m.R)) >= 0.5) out.dvt = t;
+    if (out.sheath100 !== null && out.occl !== null && out.dvt !== null) break;
+  }
+  return out;
+}
+
+/* ================= full steady evaluation ================= */
+function evaluate(Pp, opt) {
+  const N = opt.N, cache = opt.cache, cs = opt.clot || null;
+  const R = Pp.D / 2000, a0 = Pp.fr * FR_M / 2;
+  const hf = hctFactor(Pp.hct), newt = Pp.rheo === 'newtonian', muInf = CAR.muInf * hf;
+  const cc = cs ? cs.cathB : null, wc = cs ? cs.wallB : null;
+  const emax = Math.max(0, R - (wc ? arrMax(wc) : 0) - a0 - (cc ? arrMax(cc) : 0) - 0.02 * R);
+  const e = -Pp.ecc * emax;
+  const key = [N, R, a0, e, cs ? cs.version : 0].join('|');
+  if (!cache.main || cache.main.key !== key) { const s = new Section(N, R, a0, e, wc, cc); s.key = key; s.warmFrom(cache.main); cache.main = s; }
+  const tkey = N + '|' + R;
+  if (!cache.twin || cache.twin.key !== tkey) { const s = new Section(N, R, 0, 0, null, null); s.key = tkey; s.warmFrom(cache.twin); cache.twin = s; }
+  const main = cache.main, twin = cache.twin;
+  const Q0 = Math.max(1e-13, Pp.Q / 6e7);
+  const so = { hf, newt, maxIt: opt.maxIt || 260, tol: opt.tol || 1e-4 };
+  twin.steady(Object.assign({ Q: Q0 }, so));
+  const G0 = twin.G, f = clamp(Pp.share, 0, 1);
+  let Qc = Q0 * clamp(cache.ratio || 0.6, 0.005, 1);
+  if (f < 1e-4) { Qc = Q0; main.steady(Object.assign({ Q: Qc }, so)); }
+  else {
+    for (let it = 0; it < 6; it++) {
+      main.steady(Object.assign({ Q: Qc }, so));
+      const rr = (main.G / Qc) / (G0 / Q0), Qn = Q0 / ((1 - f) + f * rr), d = Math.abs(Qn - Qc) / Qc;
+      Qc = Qn; if (d < 2e-3) break;
+    }
+    main.steady(Object.assign({ Q: Qc }, so));
+  }
+  cache.ratio = Qc / Q0;
+  const m = { R, a0, e, emax, hf, newt, muInf, Q0, Qc, G0, Gc: main.G, main, twin, N };
+  m.flowRed = 1 - Qc / Q0; m.CVR = a0 / R;
+  m.Um = Qc / main.areaGeo; m.Um0 = Q0 / twin.areaGeo;
+  m.Dh = 2 * (R - a0); m.Re = RHO_B * m.Um * m.Dh / muInf; m.Re0 = RHO_B * m.Um0 * 2 * R / muInf;
+  m.Wo = R * Math.sqrt(TAU * Pp.hr / 60 * RHO_B / muInf);
+  m.wallG = new Float64Array(M); m.wallTau = new Float64Array(M); m.wallGap = new Float64Array(M);
+  m.cathG = new Float64Array(M); m.cathTau = new Float64Array(M); m.cathGap = new Float64Array(M);
+  for (let k = 0; k < M; k++) {
+    const phi = k / M * TAU, w = main.wallShear(phi), c = main.cathShear(phi);
+    m.wallG[k] = w.g; m.wallGap[k] = w.gap; m.wallTau[k] = visc(w.g, hf, newt) * w.g;
+    m.cathG[k] = c.g; m.cathGap[k] = c.gap; m.cathTau[k] = visc(c.g, hf, newt) * c.g;
+  }
+  const w0 = twin.wallShear(0);
+  m.wallG0 = w0.g; m.wallTau0 = visc(w0.g, hf, newt) * w0.g;
+  m.wallGmean = arrMean(m.wallG); m.wallGmin = arrMin(m.wallG); m.wallGmax = arrMax(m.wallG);
+  m.wallTauMean = arrMean(m.wallTau); m.wallTauMin = arrMin(m.wallTau); m.wallTauMax = arrMax(m.wallTau);
+  m.cathGmean = arrMean(m.cathG); m.cathGmin = arrMin(m.cathG); m.cathTauMean = arrMean(m.cathTau);
+  let As = 0, At = 0, Asi = 0, gMax = 0;
+  for (let k = 0; k < main.fl.length; k++) if (main.fl[k]) { const w = main.w[k], g = main.gd[k]; At += w; if (g < GAMMA_C) As += w; if (g > SIPA) Asi += w; if (g > gMax) gMax = g; }
+  m.stasis = As / At; m.sipa = Asi / At; m.gMax = Math.max(gMax, m.wallGmax, arrMax(m.cathG));
+  let As0 = 0, At0 = 0;
+  for (let k = 0; k < twin.fl.length; k++) if (twin.fl[k]) { At0 += twin.w[k]; if (twin.gd[k] < GAMMA_C) As0 += twin.w[k]; }
+  m.stasis0 = As0 / At0;
+  const ri = Math.max(0.04e-3, a0 - Pp.wallT / 1000); m.ri = ri;
+  const asp = Pp.mode === 'aspirate'; m.asp = asp;
+  const hg = Pp.holes.map(h => {
+    const th = h.ang * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+    const rc = a0 + (cc ? interpA(cc, th) : 0), Sy = e + rc * c, Sz = rc * s;
+    const gap = main.gapAlong(Sy, Sz, c, s);
+    const Uc = Math.max(Math.abs(main.sampleU(Sy + c * gap / 2, Sz + s * gap / 2)), 1e-4);
+    return { th, c, s, Sy, Sz, gap, Uc, sheath: cc ? interpA(cc, th) : 0, sealed: asp && gap < 0.6 * h.dia / 1000 };
+  });
+  let extra = null;
+  if (asp) extra = { holes: Pp.holes.map((h, j) => hg[j].sealed ? 0.96 : Math.min(0.9, hg[j].sheath / (0.5 * h.dia / 1000))), end: cc ? Math.min(0.9, arrMean(cc) / ri) : 0 };
+  m.sealed = hg.filter(x => x.sealed).length;
+  const net = holeNetwork(Pp, ri, cs ? cs.end : 0, extra); m.net = net; m.extra = extra;
+  const inf = INFUSATES[Pp.infusate], Hb = Pp.hct / 3;
+  m.jets = []; let tauImpMax = 0, hemo = 0, plt = 0, jetVmax = 0, jetMaxIdx = -1;
+  Pp.holes.forEach((h, j) => {
+    const hr = net.holes[j], G = hg[j];
+    const J = asp ? inletCalc(hr.q, hr.v, 2 * hr.re, G.gap, G.Uc, muInf) : jetCalc(hr.q, hr.v, 2 * hr.re, G.gap, G.Uc, inf, muInf, Qc);
+    J.th = G.th; J.Uc = G.Uc; J.gap = G.gap; J.phiW = Math.atan2(G.Sz + G.s * G.gap, G.Sy + G.c * G.gap); J.Sy = G.Sy; J.Sz = G.Sz; J.sealed = G.sealed;
+    m.jets.push(J);
+    if (J.tauImp > tauImpMax) tauImpMax = J.tauImp;
+    if (hr.v > jetVmax) { jetVmax = hr.v; jetMaxIdx = j; }
+    hemo += J.HI / 100 * J.Qent * 3600 * 1e4 * Hb * 1000 / 50;
+    plt += J.PAS / 100 * J.Qent * 3600 / 5e-3 * 100;
+  });
+  m.endJet = null;
+  if (net.end.q > 0) {
+    const J = asp ? inletCalc(net.end.q, net.end.v, 2 * net.end.r, Infinity, Math.max(m.Um, 1e-4), muInf) : jetCalc(net.end.q, net.end.v, 2 * net.end.r, Infinity, Math.max(m.Um, 1e-4), inf, muInf, Qc);
+    m.endJet = J;
+    if (net.end.v > jetVmax) { jetVmax = net.end.v; jetMaxIdx = -2; }
+    hemo += J.HI / 100 * J.Qent * 3600 * 1e4 * Hb * 1000 / 50;
+    plt += J.PAS / 100 * J.Qent * 3600 / 5e-3 * 100;
+  }
+  if (asp && net.Qin > 0) {
+    const Al = Math.PI * ri * ri, Vl = net.Qin / Al, Rel = RHO_B * Vl * 2 * ri / muInf;
+    const tauL = Rel < 2300 ? muInf * 8 * Vl / (2 * ri) : 0.316 * Math.pow(Rel, -0.25) / 8 * RHO_B * Vl * Vl;
+    const gl = giersiepen(Math.min(2, (Pp.len / 100) / Vl), tauL);
+    m.lumenTau = tauL;
+    hemo += gl.HI / 100 * net.Qin * 3600 * 1e4 * Hb * 1000 / 50;
+    plt += gl.PAS / 100 * net.Qin * 3600 / 5e-3 * 100;
+  }
+  m.tauImpMax = tauImpMax; m.hemo = hemo; m.plt = plt; m.jetVmax = jetVmax; m.jetMaxIdx = jetMaxIdx;
+  const qs = net.holes.filter((x, j) => !((Pp.holes[j].occ || 0) > 0.97)).map(x => x.q);
+  if (qs.length > 1) { const mq = arrMean(qs); m.holeCV = mq > 0 ? Math.sqrt(arrMean(qs.map(q => (q - mq) ** 2))) / mq : 0; } else m.holeCV = 0;
+  m.endShare = net.Qin > 0 ? net.end.q / net.Qin : 0;
+  m.hubP = Pp.Pv * MMHG + (asp ? -1 : 1) * net.dpHub;
+  m.dilution = asp ? 0 : net.Qin / (net.Qin + Qc);
+  m.drawShare = asp ? net.Qin / Qc : 0;
+  m.Qdown = asp ? Math.max(Qc - net.Qin, 0) : Qc + net.Qin;
+  m.downG = w0.g * m.Qdown / Q0; m.downTau = visc(m.downG, hf, newt) * m.downG;
+  m.tipG = 0.25 * m.cathGmean; m.endG = m.tipG;
+  m.endWash = net.end.v / (net.end.v + V_WASH);
+  m.holeG = Pp.holes.map(h => 0.3 * interpA(m.cathG, h.ang * Math.PI / 180));
+  m.holeWash = net.holes.map(x => x.v / (x.v + V_WASH));
+  m.cvrIrr = 0.3 / (1 + Math.exp(-(m.CVR - 0.45) / 0.05));
+  m.wallI = new Float64Array(M); let contactMax = 0;
+  for (let k = 0; k < M; k++) {
+    const contact = Math.exp(-m.wallGap[k] / 0.15e-3); if (contact > contactMax) contactMax = contact;
+    let I = 0.03 + contact + m.cvrIrr;
+    for (const J of m.jets) {
+      const d = angDiff(k / M * TAU, J.phiW);
+      if (J.impinge) I += Math.min(1, J.tauImp / FRY) * Math.exp(-0.5 * (d / 0.21) ** 2);
+      if (J.sealed) I += Math.exp(-0.5 * (d / 0.15) ** 2);
+    }
+    m.wallI[k] = I;
+  }
+  m.contact = contactMax;
+  const S = clamp(0.4 * Math.max(0, m.flowRed, 1 - m.Qdown / Q0) + 0.3 * Math.max(0, 1 - m.wallGmin / m.wallG0) + 0.3 * arrMean(Array.from(m.cathG, Pc)), 0, 1);
+  const E = clamp(0.1 + 0.5 / (1 + Math.exp(-(m.CVR - 0.45) / 0.05)) + 0.6 * contactMax + 0.6 * Math.min(1, tauImpMax / FRY) + 0.4 * Math.min(1, m.sealed), 0, 1);
+  const H = COAG[Pp.coag].f * AC[Pp.ac].f * MATERIALS[Pp.mat].f * (1 + Math.min(1, plt));
+  const Hn = 2 * H / (1 + H);
+  m.virchow = { S, E, H: clamp(Hn / 2, 0, 1) };
+  m.risk = 100 * (1 - Math.exp(-3.5 * S * E * Hn));
+  const r0 = clotRates(m, Pp, freshState(Pp));
+  m.fibrinRate0 = arrMean(r0.dc); m.muralRate0 = arrMax(r0.dw);
+  return m;
+}
+
+/* ================= scheduling of the steady analysis ================= */
+let saTimer = null, saPending = false;
+function requestSA(delay) { saPending = true; clearTimeout(saTimer); saTimer = setTimeout(runSA, delay === undefined ? 50 : delay); }
+function runSA() {
+  saPending = false;
+  const holesSel = V.selected;
+  SA = evaluate(P, { N: N_SA, cache: saCache, clot: CL });
+  lastRates = clotRates(SA, P, { cath: CL.cath, wall: CL.wall, down: CL.down, holes: P.holes.map(h => h.occ || 0), end: CL.end });
+  CL.proj = project(SA, P);
+  syncLive();
+  updateMetrics(); updateHoleTable(); updateReadouts();
+  V.selected = holesSel;
+  const sig = JSON.stringify(Object.assign({}, P, { holes: P.holes.map(h => [h.dist, h.ang, h.dia]) }));
+  if (sig !== runSA.sig) { runSA.sig = sig; requestSweep(); }
+}
+
+/* ================= live transient ================= */
+const LV = { main: null, twin: null, t: 0, key: '', w: 1, Qm: 0, Qt: 0, inst: {} };
+function syncLive() {
+  const key = SA.main.key + '#' + SA.twin.key;
+  if (LV.key !== key) {
+    const om = LV.main, ot = LV.twin;
+    LV.main = SA.main.clone(); LV.twin = SA.twin.clone();
+    const w = waveFactor(P.wave, LV.t, P.hr, P.rr);
+    for (const s of [LV.main, LV.twin]) for (let k = 0; k < s.u.length; k++) s.u[k] *= w;
+    if (om && om.N === LV.main.N && Math.abs(om.R - LV.main.R) < 1e-12) {
+      for (let k = 0; k < LV.main.u.length; k++) if (LV.main.fl[k] && om.fl[k]) LV.main.u[k] = om.u[k];
+      for (let k = 0; k < LV.twin.u.length; k++) if (LV.twin.fl[k] && ot.fl[k]) LV.twin.u[k] = ot.u[k];
+    }
+    LV.key = key;
+    RB.n = 0;
+  }
+}
+function stepLive(dtp) {
+  if (!LV.main || !SA) return;
+  const T = cyclePeriod(P), dtMax = Math.min(T / 120, 0.01);
+  let n = Math.ceil(dtp / dtMax); if (n > 6) n = 6; if (n < 1) n = 1;
+  const dt = dtp / n, hf = SA.hf, newt = SA.newt;
+  for (let s = 0; s < n; s++) {
+    LV.t += dt;
+    const w = waveFactor(P.wave, LV.t, P.hr, P.rr), r = 2 * RHO_B / dt;
+    LV.w = w;
+    LV.main.shear(LV.main.u); LV.main.updateMu(hf, newt, 0); LV.main.coeffs(); LV.main.stepQ(r, SA.Qc * w);
+    LV.twin.shear(LV.twin.u); LV.twin.updateMu(hf, newt, 0); LV.twin.coeffs(); LV.twin.stepQ(r, SA.Q0 * w);
+  }
+  LV.main.shear(LV.main.u); LV.twin.shear(LV.twin.u);
+  measureLive();
+}
+function measureLive() {
+  const mm = LV.main;
+  LV.Qm = mm.flow(mm.u); LV.Qt = LV.twin.flow(LV.twin.u);
+  let gMax = 0; for (let k = 0; k < mm.gd.length; k++) if (mm.gd[k] > gMax) gMax = mm.gd[k];
+  const wt = mm.wallShear(0), wb = mm.wallShear(Math.PI), ct = mm.cathShear(0), cb = mm.cathShear(Math.PI);
+  const hf = SA.hf, newt = SA.newt;
+  LV.inst = {
+    Q: LV.Qm, Q0: LV.Qt, G: mm.G, wTop: wt.g, wBot: wb.g, tauTop: visc(wt.g, hf, newt) * wt.g, tauBot: visc(wb.g, hf, newt) * wb.g,
+    cTop: ct.g, cBot: cb.g, gMax: Math.max(gMax, wt.g, wb.g, ct.g, cb.g), Re: RHO_B * Math.abs(LV.Qm / mm.areaGeo) * SA.Dh / SA.muInf
+  };
+}
+
+/* ================= particles ================= */
+const NRB_MAX = 1400;
+const RB = { n: 0, x: new Float64Array(NRB_MAX), y: new Float64Array(NRB_MAX), z: new Float64Array(NRB_MAX), ph: new Float64Array(NRB_MAX), ty: new Uint8Array(NRB_MAX), r0: new Float64Array(NRB_MAX), th: new Float64Array(NRB_MAX), mp: new Uint8Array(NRB_MAX), sz: new Float64Array(NRB_MAX) };
+const JP = [];   // jet particles
+const LP = [];   // lumen particles
+const emitAcc = new Map();
+const view = { W: 0, H: 0, k: 1, kx: 1, cy: 0, dpr: 1 };
+function viewRange() { const L = view.W / view.kx; return [V.viewX0 - 0.04 * L, V.viewX0 + 1.04 * L]; }
+function resetParticles() {
+  if (!SA || !view.W) return;
+  const R = SA.R, slice = V.cells === 'slice';
+  RB.n = slice ? 750 : 1300;
+  const [xl, xr] = viewRange();
+  for (let i = 0; i < RB.n; i++) {
+    let y = 0, z = 0, ty = 0;
+    const roll = Math.random();
+    ty = roll < 0.12 ? 1 : (roll < 0.125 ? 2 : 0);
+    for (let tries = 0; tries < 60; tries++) {
+      if (ty === 0) { y = (Math.random() * 2 - 1) * R; z = slice ? (Math.random() * 2 - 1) * 0.12 * R : (Math.random() * 2 - 1) * R; }
+      else {
+        const rr = R * (ty === 1 ? 0.8 + 0.17 * Math.random() : 0.86 + 0.08 * Math.random());
+        if (slice) { z = (Math.random() * 2 - 1) * 0.12 * R; const yy = Math.sqrt(Math.max(0, rr * rr - z * z)); y = Math.random() < 0.5 ? yy : -yy; }
+        else { const a = Math.random() * TAU; y = rr * Math.cos(a); z = rr * Math.sin(a); }
+      }
+      if (y * y + z * z < (R * 0.985) ** 2 && LV.main.fluid(y, z)) break;
+    }
+    RB.x[i] = xl + Math.random() * (xr - xl); RB.y[i] = y; RB.z[i] = z; RB.ty[i] = ty; RB.ph[i] = Math.random() * TAU; RB.mp[i] = 0;
+    RB.sz[i] = ty === 0 ? 0.85 + 0.3 * Math.random() : ty === 1 ? 0.8 + 0.4 * Math.random() : 1;
+  }
+  JP.length = 0; LP.length = 0;
+}
+function devLength() { const Re = SA.Re0; return Math.max(0.5, 0.6 / (1 + 0.035 * Re) + 0.056 * Re) * 2 * SA.R; }
+function blendB(x) { return x <= 0 ? 0 : 1 - Math.exp(-3 * x / devLength()); }
+function rhoOut(th) {
+  const c = Math.cos(th), s = Math.sin(th), e = SA.e, R = SA.R, cn = e * c;
+  return -cn + Math.sqrt(Math.max(0, cn * cn - e * e + R * R));
+}
+function downPos(r0, th, x) {
+  const a = SA.a0, ro = rhoOut(th), b = blendB(x);
+  const rt = ro * Math.sqrt(Math.max(0, (r0 * r0 - a * a) / Math.max(ro * ro - a * a, 1e-12)));
+  const rho = r0 + (rt - r0) * b;
+  return [SA.e + rho * Math.cos(th), rho * Math.sin(th)];
+}
+function localU(x, y, z) {
+  if (x <= 0) return LV.main.sampleU(y, z);
+  const b = blendB(x);
+  const sc = Math.abs(LV.Qt) > 1e-12 ? clamp((LV.Qm + (SA.asp ? -1 : 1) * SA.net.Qin) / LV.Qt, 0, 3) : 1;
+  return (1 - b) * LV.main.sampleU(y, z) + b * LV.twin.sampleU(y, z) * sc;
+}
+function localG(x, y, z) {
+  if (x <= 0) return LV.main.sampleF(LV.main.gd, y, z);
+  const b = blendB(x);
+  return (1 - b) * LV.main.sampleF(LV.main.gd, y, z) + b * LV.twin.sampleF(LV.twin.gd, y, z);
+}
+function stepParticles(dtp, dtReal) {
+  if (!SA || !LV.main) return;
+  const [xl, xr] = viewRange(), span = xr - xl;
+  for (let i = 0; i < RB.n; i++) {
+    let x = RB.x[i], y = RB.y[i], z = RB.z[i];
+    let py = y, pz = z;
+    if (x > 0) {
+      if (!RB.mp[i]) { RB.r0[i] = Math.hypot(y - SA.e, z); RB.th[i] = Math.atan2(z, y - SA.e); RB.mp[i] = 1; }
+      [py, pz] = downPos(RB.r0[i], RB.th[i], x);
+    } else RB.mp[i] = 0;
+    let u = localU(x, py, pz);
+    if (RB.ty[i] === 2) u *= 0.3;
+    x += u * dtp;
+    if (x > xr) x -= span; else if (x < xl) x += span;
+    RB.x[i] = x;
+    const g = localG(x, py, pz);
+    RB.ph[i] += Math.min(0.5, 0.5 * g * dtp);
+  }
+  // emission of infusate
+  const net = SA.net;
+  if (net.Qin > 0) {
+    const base = 210 * clamp(Math.log10(P.inf * 10 + 1) / Math.log10(3001), 0.18, 1);
+    const outlets = [];
+    P.holes.forEach((h, j) => { if (net.holes[j].q > 0) outlets.push(['h' + h.id, net.holes[j].q / net.Qin, j]); });
+    if (net.end.q > 0) outlets.push(['end', net.end.q / net.Qin, -1]);
+    for (const [key, frac, j] of outlets) {
+      let acc = (emitAcc.get(key) || 0) + base * frac * dtReal;
+      while (acc >= 1 && JP.length < 1600) { acc -= 1; if (SA.asp) spawnInlet(j); else spawnJet(j); }
+      if (acc > 5) acc = 0;
+      emitAcc.set(key, acc);
+      if (SA.asp) {
+        let la = (emitAcc.get('L' + key) || 0) + 45 * frac * dtReal;
+        while (la >= 1 && LP.length < 260) { la -= 1; const rr = Math.sqrt(Math.random()) * SA.ri * 0.92, a = Math.random() * TAU; LP.push({ x: j >= 0 ? -P.holes[j].dist / 1000 : -1e-5, ly: rr * Math.cos(a), lz: rr * Math.sin(a) }); }
+        emitAcc.set('L' + key, la);
+      }
+    }
+    if (!SA.asp) {
+      let lacc = (emitAcc.get('lumen') || 0) + 40 * dtReal;
+      while (lacc >= 1 && LP.length < 220) { lacc -= 1; const rr = Math.sqrt(Math.random()) * SA.ri * 0.92, a = Math.random() * TAU; LP.push({ x: xl, ly: rr * Math.cos(a), lz: rr * Math.sin(a) }); }
+      emitAcc.set('lumen', lacc);
+    }
+  }
+  for (let i = JP.length - 1; i >= 0; i--) { if (!updateJet(JP[i], dtp, dtReal)) JP.splice(i, 1); }
+  updateLumen(dtp);
+}
+function spawnJet(j) {
+  const R = SA.R, a = SA.a0, e = SA.e;
+  if (j >= 0) {
+    const h = P.holes[j], J = SA.jets[j];
+    if (!J || !h) return;
+    JP.push({ kind: 0, hid: h.id, j, x0: -h.dist / 1000, xi: 0, t: 0, real: 0, th: J.th, v0: J.v, d: J.d, gap: J.gap, sa: randn(), sx: randn(), passive: false, x: -h.dist / 1000, y: J.Sy, z: J.Sz, hit: false, life: 2.2 + Math.random() * 1.2 });
+  } else {
+    const rr = Math.sqrt(Math.random()) * SA.net.end.r * 0.9, an = Math.random() * TAU;
+    JP.push({ kind: 1, s: 0, t: 0, real: 0, v0: SA.net.end.v, d: 2 * SA.net.end.r, ly: rr * Math.cos(an), lz: rr * Math.sin(an), sr: randn(), passive: false, x: 0, y: e + rr * Math.cos(an), z: rr * Math.sin(an), life: 2.2 + Math.random() * 1.2 });
+  }
+}
+function spawnInlet(j) {
+  let H, n, J;
+  if (j >= 0) { J = SA.jets[j]; const h = P.holes[j]; if (!J || !h || J.sealed || !(J.q > 0)) return; H = [-h.dist / 1000, J.Sy, J.Sz]; n = [0, Math.cos(J.th), Math.sin(J.th)]; }
+  else { J = SA.endJet; if (!J || !(J.q > 0)) return; H = [0, SA.e, 0]; n = [1, 0, 0]; }
+  const rcap = Math.max(1.5 * J.rc, 3 * J.d), r0 = rcap * (0.45 + 0.8 * Math.random());
+  for (let i = 0; i < 25; i++) {
+    let w = [randn(), randn(), randn()]; const L = Math.hypot(w[0], w[1], w[2]); w = w.map(x => x / L);
+    if (w[0] * n[0] + w[1] * n[1] + w[2] * n[2] < 0.1) continue;
+    const x = H[0] + w[0] * r0, y = H[1] + w[1] * r0, z = H[2] + w[2] * r0;
+    if (x < 0 && !LV.main.fluid(y, z)) continue;
+    if (y * y + z * z > SA.R * SA.R * 0.98) continue;
+    JP.push({ kind: 2, H, q: J.q, d: J.d, rc: rcap, x, y, z, real: 0, t: 0, life: 2.5 + Math.random() });
+    return;
+  }
+}
+function updateJet(p, dtp, dtReal) {
+  p.real += dtReal; p.t += dtp;
+  if (p.real > p.life) return false;
+  if (p.kind === 2) {
+    const dx = p.x - p.H[0], dy = p.y - p.H[1], dz = p.z - p.H[2], dist = Math.hypot(dx, dy, dz) || 1e-9;
+    const sp = p.q / (TAU * dist * dist);
+    if (dist < p.d * 0.5 || sp * dtp > 0.6 * dist) return false;
+    const ub = (p.x > 0 || LV.main.fluid(p.y, p.z)) ? localU(p.x, p.y, p.z) : 0;
+    p.x += (-sp * dx / dist + ub) * dtp; p.y += (-sp * dy / dist) * dtp; p.z += (-sp * dz / dist) * dtp;
+    if (p.x < 0) { const ry = p.y - SA.e, rr = Math.hypot(ry, p.z); if (rr < SA.a0 * 1.01 && dist > p.d * 0.7) { const f = SA.a0 * 1.02 / Math.max(rr, 1e-9); p.y = SA.e + ry * f; p.z *= f; } }
+    return dist < 3 * p.rc;
+  }
+  if (p.passive) {
+    let py = p.y, pz = p.z;
+    if (p.x > 0) { if (p.r0 === undefined) { p.r0 = Math.hypot(p.y - SA.e, p.z); p.th0 = Math.atan2(p.z, p.y - SA.e); } [py, pz] = downPos(p.r0, p.th0, p.x); p.py = py; p.pz = pz; } else { p.py = py; p.pz = pz; }
+    p.x += localU(p.x, py, pz) * dtp;
+    const [xl, xr] = viewRange();
+    return p.x < xr && p.x > xl;
+  }
+  if (p.kind === 0) {
+    const h = P.holes.find(q => q.id === p.hid);
+    if (!h) return false;
+    const c = Math.cos(p.th), s = Math.sin(p.th);
+    const rc = SA.a0 + interpA(CL.cath, p.th);
+    const mid = LV.main.sampleU(SA.e + c * (rc + p.gap / 2), s * (rc + p.gap / 2));
+    p.xi += mid * dtp;
+    const Uc = Math.max(Math.abs(mid), 1e-4), r = p.v0 / Uc, rd = r * p.d;
+    const axi = Math.abs(p.xi);
+    let rho = Math.min(p.v0 * p.t, Math.sqrt(12.4 * p.d * p.v0 * p.t), axi > 0 ? 2.05 * rd * Math.pow(axi / rd, 0.28) : Infinity);
+    let wallSpread = 0;
+    if (rho >= p.gap * 0.97) { rho = p.gap * 0.97; if (!p.hit) { p.hit = true; p.thit = p.t; } wallSpread = (p.t - p.thit) * Math.min(p.v0, 0.5) / SA.R * 0.6; }
+    const half = 0.12 * rho + p.d / 2;
+    const ang = p.th + p.sa * (half / (rc + rho + 1e-9)) + (p.hit ? p.sa * wallSpread : 0);
+    p.x = p.x0 + p.xi + p.sx * half;
+    p.y = SA.e + (rc + rho) * Math.cos(ang); p.z = (rc + rho) * Math.sin(ang);
+    if (!LV.main.fluid(p.y, p.z) && p.x < 0) { const rr2 = (rc + rho) * 0.995; p.y = SA.e + rr2 * Math.cos(ang); p.z = rr2 * Math.sin(ang); }
+    const s2 = Math.hypot(p.xi, rho), vex = p.v0 * Math.min(1, 6.2 * p.d / Math.max(s2, 1e-9));
+    if ((vex < 1.5 * Uc && p.t > 5 * p.d / p.v0) || axi > 30 * rd || p.t > 3) { p.passive = true; }
+    return true;
+  } else {
+    const ub = localU(Math.max(p.s, 1e-6), SA.e + p.ly, p.lz);
+    const vex = p.v0 / (1 + p.s / (6.2 * p.d));
+    p.s += (ub + vex) * dtp;
+    const off = p.sr * (0.1 * p.s);
+    const rr = Math.hypot(p.ly, p.lz) + Math.abs(off), an = Math.atan2(p.lz, p.ly);
+    p.x = p.s; p.y = SA.e + rr * Math.cos(an); p.z = rr * Math.sin(an);
+    if (vex < 0.3 * Math.max(Math.abs(ub), 1e-4) || p.t > 3) { p.passive = true; }
+    return true;
+  }
+}
+function updateLumen(dtp) {
+  const net = SA.net, ri = SA.ri, Al = Math.PI * ri * ri;
+  if (SA.asp) {
+    const xl = viewRange()[0];
+    for (let i = LP.length - 1; i >= 0; i--) {
+      const p = LP[i];
+      let F = net.end.q;
+      P.holes.forEach((h, j) => { if (-h.dist / 1000 >= p.x - 1e-9) F += net.holes[j].q; });
+      const r2 = (p.ly * p.ly + p.lz * p.lz) / (ri * ri);
+      p.x -= 2 * F / Al * Math.max(0.05, 1 - r2) * dtp;
+      if (p.x < xl) LP.splice(i, 1);
+    }
+    return;
+  }
+  const order = net.order.slice().sort((a, b) => P.holes[b].dist - P.holes[a].dist); // proximal first
+  for (let i = LP.length - 1; i >= 0; i--) {
+    const p = LP[i];
+    let F = net.Qin;
+    for (const j of order) { const xh = -P.holes[j].dist / 1000; if (xh < p.x) F -= net.holes[j].q; }
+    const r2 = (p.ly * p.ly + p.lz * p.lz) / (ri * ri);
+    const v = 2 * Math.max(F, 0) / Al * Math.max(0.05, 1 - r2);
+    const xn = p.x + v * dtp;
+    let keep = true;
+    for (const j of order) {
+      const xh = -P.holes[j].dist / 1000;
+      if (p.x < xh && xn >= xh) { let Fb = net.Qin; for (const k of order) { const xk = -P.holes[k].dist / 1000; if (xk < xh) Fb -= net.holes[k].q; } if (Math.random() < net.holes[j].q / Math.max(Fb, 1e-15)) keep = false; }
+    }
+    p.x = xn;
+    if (!keep || p.x >= 0) LP.splice(i, 1);
+  }
+}
+
+/* ================= canvas setup ================= */
+const cvView = document.getElementById('view'), ctx = cvView.getContext('2d');
+const cvChart = document.getElementById('chart'), cctx = cvChart.getContext('2d');
+const cvXs = document.getElementById('xs'), xctx = cvXs.getContext('2d');
+const tipEl = document.getElementById('tip');
+function fit(cv) {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  return { W: r.width, H: r.height, dpr };
+}
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+/* sprites */
+function makeSprite(size, draw) { const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size); return c; }
+const SPR_RBC = makeSprite(48, (g, s) => {
+  const r = s / 2;
+  const grd = g.createRadialGradient(r, r, 0, r, r, r);
+  grd.addColorStop(0, 'rgba(150,24,34,1)'); grd.addColorStop(0.45, 'rgba(176,32,42,1)'); grd.addColorStop(0.72, 'rgba(226,70,78,1)'); grd.addColorStop(0.9, 'rgba(196,44,54,1)'); grd.addColorStop(1, 'rgba(120,18,28,0)');
+  g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(255,190,190,0.25)'; g.beginPath(); g.ellipse(r * 0.75, r * 0.6, r * 0.28, r * 0.14, -0.6, 0, TAU); g.fill();
+});
+const SPR_PLT = makeSprite(24, (g, s) => { const r = s / 2; const grd = g.createRadialGradient(r, r, 0, r, r, r); grd.addColorStop(0, 'rgba(255,240,180,1)'); grd.addColorStop(0.6, 'rgba(232,200,110,0.95)'); grd.addColorStop(1, 'rgba(200,160,80,0)'); g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill(); });
+const SPR_WBC = makeSprite(64, (g, s) => {
+  const r = s / 2; const grd = g.createRadialGradient(r * 0.9, r * 0.9, 0, r, r, r);
+  grd.addColorStop(0, 'rgba(236,228,246,1)'); grd.addColorStop(0.8, 'rgba(206,196,226,0.95)'); grd.addColorStop(1, 'rgba(170,160,200,0)');
+  g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(120,96,170,0.75)';
+  for (const [dx, dy, rr] of [[-0.25, -0.1, 0.22], [0.15, -0.22, 0.2], [0.18, 0.18, 0.21]]) { g.beginPath(); g.arc(r + dx * r, r + dy * r, rr * r, 0, TAU); g.fill(); }
+});
+const SPR_INF = makeSprite(32, (g, s) => { const r = s / 2; const grd = g.createRadialGradient(r, r, 0, r, r, r); grd.addColorStop(0, 'rgba(225,246,255,1)'); grd.addColorStop(0.35, 'rgba(120,205,255,0.85)'); grd.addColorStop(1, 'rgba(40,140,230,0)'); g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill(); });
+const SPR_ASP = makeSprite(32, (g, s) => { const r = s / 2; const grd = g.createRadialGradient(r, r, 0, r, r, r); grd.addColorStop(0, 'rgba(255,246,220,1)'); grd.addColorStop(0.35, 'rgba(255,170,90,0.9)'); grd.addColorStop(1, 'rgba(255,100,40,0)'); g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill(); });
+const SPR_BLD = makeSprite(32, (g, s) => { const r = s / 2; const grd = g.createRadialGradient(r, r, 0, r, r, r); grd.addColorStop(0, 'rgba(255,170,170,1)'); grd.addColorStop(0.4, 'rgba(230,80,90,0.85)'); grd.addColorStop(1, 'rgba(160,20,30,0)'); g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill(); });
+
+/* colormaps */
+const CMAPS = {
+  u: [[13, 8, 135], [84, 2, 163], [139, 10, 165], [185, 50, 137], [219, 92, 104], [244, 136, 73], [254, 188, 43], [240, 249, 33]],
+  g: [[0, 0, 4], [40, 11, 84], [101, 21, 110], [159, 42, 99], [212, 72, 66], [245, 125, 21], [250, 193, 39], [252, 255, 164]],
+  mu: [[0, 34, 78], [37, 60, 110], [80, 88, 110], [118, 116, 117], [158, 147, 116], [203, 180, 103], [253, 231, 55]],
+  pc: [[24, 52, 92], [44, 104, 150], [120, 160, 170], [236, 210, 140], [226, 120, 70], [180, 40, 40], [110, 10, 20]]
+};
+function cmap(name, t) {
+  const s = CMAPS[name]; t = clamp(t, 0, 1);
+  const x = t * (s.length - 1), i = Math.min(s.length - 2, Math.floor(x)), f = x - i;
+  return [s[i][0] + (s[i + 1][0] - s[i][0]) * f, s[i][1] + (s[i + 1][1] - s[i][1]) * f, s[i][2] + (s[i + 1][2] - s[i][2]) * f];
+}
+function fieldScale(field) {
+  const mm = LV.main;
+  if (field === 'u') { let mx = 0, mn = 0; for (let k = 0; k < mm.u.length; k++) { if (mm.u[k] > mx) mx = mm.u[k]; if (mm.u[k] < mn) mn = mm.u[k]; } const tw = arrMaxAbs(LV.twin.u); mx = Math.max(mx, tw * 0.6, 1e-6); return { lo: Math.min(mn, 0), hi: mx, f: v => v }; }
+  if (field === 'g') { let mx = 0; for (let k = 0; k < mm.gd.length; k++) if (mm.gd[k] > mx) mx = mm.gd[k]; mx = Math.max(mx, 10); return { lo: 0, hi: Math.log10(mx + 1), f: v => Math.log10(v + 1) }; }
+  if (field === 'mu') { const lo = CAR.muInf * SA.hf; return { lo: lo * 1e3, hi: Math.max(lo * 1e3 * 1.0001, Math.min(CAR.mu0 * SA.hf * 1e3, 25)), f: v => v }; }
+  return { lo: 0, hi: 1, f: v => v };
+}
+function arrMaxAbs(a) { let m = 0; for (const v of a) { const x = Math.abs(v); if (x > m) m = x; } return m; }
+function fieldValue(field, sec, k) {
+  if (field === 'u') return sec.u[k];
+  if (field === 'g') return sec.gd[k];
+  if (field === 'mu') return visc(sec.gd[k], SA.hf, SA.newt) * 1e3;
+  return Pc(sec.gd[k]);
+}
+function fieldAt(field, x, y, z) {
+  if (field === 'u') return localU(x, y, z);
+  const g = localG(x, y, z);
+  if (field === 'g') return g;
+  if (field === 'mu') return visc(g, SA.hf, SA.newt) * 1e3;
+  return Pc(g);
+}
+
+/* ================= side view render ================= */
+let bgCache = null, bgKey = '';
+function noise1(x) { return Math.sin(x * 1.7) * 0.5 + Math.sin(x * 3.9 + 1.3) * 0.3 + Math.sin(x * 8.1 + 0.7) * 0.2; }
+function drawBackground() {
+  const W = view.W, H = view.H, dpr = view.dpr, R = SA.R, k = view.k, cy = view.cy;
+  const key = [W, H, dpr, R, k, P.vtype].join('|');
+  if (bgKey === key && bgCache) { ctx.drawImage(bgCache, 0, 0, W, H); return; }
+  const c = document.createElement('canvas'); c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const Rpx = R * k, wallPx = Math.max(9, Rpx * (P.vtype === 'artery' ? 0.24 : 0.1));
+  const tissue = g.createLinearGradient(0, 0, 0, H);
+  tissue.addColorStop(0, '#4a2a2c'); tissue.addColorStop(0.5, '#3a1e22'); tissue.addColorStop(1, '#4a2a2c');
+  g.fillStyle = tissue; g.fillRect(0, 0, W, H);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 520; i++) { const x = rnd() * W, y = rnd() * H; g.fillStyle = `rgba(${150 + rnd() * 60},${90 + rnd() * 40},${80 + rnd() * 30},${0.05 + rnd() * 0.08})`; g.beginPath(); g.ellipse(x, y, 4 + rnd() * 18, 1 + rnd() * 4, rnd() * 0.4 - 0.2, 0, TAU); g.fill(); }
+  for (const side of [1, -1]) {
+    const yi = cy - side * Rpx, yo = yi - side * wallPx, ya = yo - side * wallPx * 0.7;
+    const top = Math.min(yi, ya), hgt = Math.abs(ya - yi);
+    const gr = g.createLinearGradient(0, ya, 0, yi);
+    gr.addColorStop(0, '#9b6a5c'); gr.addColorStop(0.35, '#b56d6a'); gr.addColorStop(0.75, P.vtype === 'artery' ? '#c4646b' : '#b25c66'); gr.addColorStop(1, '#d98a8e');
+    g.fillStyle = gr; g.fillRect(0, top, W, hgt);
+    g.strokeStyle = 'rgba(255,220,220,0.13)'; g.lineWidth = 1;
+    const nl = P.vtype === 'artery' ? 9 : 5;
+    for (let l = 1; l < nl; l++) {
+      const yy = yi - side * wallPx * l / nl;
+      g.beginPath(); for (let x = 0; x <= W; x += 6) { const w2 = noise1(x * 0.02 + l * 3) * 1.4; x === 0 ? g.moveTo(x, yy + w2) : g.lineTo(x, yy + w2); } g.stroke();
+    }
+    g.strokeStyle = 'rgba(255,214,214,0.85)'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(0, yi); g.lineTo(W, yi); g.stroke();
+  }
+  const lg = g.createLinearGradient(0, cy - Rpx, 0, cy + Rpx);
+  lg.addColorStop(0, '#2b080e'); lg.addColorStop(0.5, '#42101a'); lg.addColorStop(1, '#2b080e');
+  g.fillStyle = lg; g.fillRect(0, cy - Rpx, W, 2 * Rpx);
+  bgCache = c; bgKey = key;
+  ctx.drawImage(c, 0, 0, W, H);
+}
+const X = xw => (xw - V.viewX0) * view.kx;
+const Y = yw => view.cy - yw * view.k;
+let colImg = null;
+function drawOverlay() {
+  if (V.overlay === 'none') return;
+  const field = V.overlay, sc = fieldScale(field), R = SA.R, k = view.k, cy = view.cy;
+  const top = Math.ceil(cy - R * k), bot = Math.floor(cy + R * k), rows = Math.max(1, bot - top);
+  const ncol = 40, xt = X(0), W = view.W;
+  if (!colImg || colImg.width !== ncol + 1 || colImg.height !== rows) colImg = ctx.createImageData(ncol + 1, rows);
+  const d = colImg.data;
+  for (let c = 0; c <= ncol; c++) {
+    const xw = c === 0 ? -1 : Math.max(1e-9, Math.max(0, V.viewX0) + ((c - 1) / (ncol - 1)) * (V.viewX0 + W / view.kx - Math.max(0, V.viewX0)));
+    for (let r = 0; r < rows; r++) {
+      const yw = (cy - (top + r + 0.5)) / k;
+      let val, solid = false;
+      if (xw <= 0) { solid = !LV.main.fluid(yw, 0); val = solid ? 0 : fieldAt(field, xw, yw, 0); }
+      else val = fieldAt(field, xw, yw, 0);
+      const t = (sc.f(val) - sc.lo) / (sc.hi - sc.lo || 1);
+      const [rr, gg, bb] = cmap(field, t);
+      const o = (r * (ncol + 1) + c) * 4;
+      d[o] = rr; d[o + 1] = gg; d[o + 2] = bb; d[o + 3] = solid ? 0 : 150;
+    }
+  }
+  if (!drawOverlay.cv) drawOverlay.cv = document.createElement('canvas');
+  const oc = drawOverlay.cv; oc.width = ncol + 1; oc.height = rows;
+  oc.getContext('2d').putImageData(colImg, 0, 0);
+  ctx.save(); ctx.imageSmoothingEnabled = true;
+  if (xt > 0) ctx.drawImage(oc, 0, 0, 1, rows, 0, top, Math.min(xt, W), rows);
+  if (xt < W) { const x0 = Math.max(0, xt); ctx.drawImage(oc, 1, 0, ncol, rows, x0, top, W - x0, rows); }
+  ctx.restore();
+}
+
+function drawMural() {
+  const R = SA.R, k = view.k, W = view.W, xt = X(0), L = 2 * R;
+  for (const [idx, sign] of [[0, 1], [M / 2, -1]]) {
+    const up = CL.wall[idx], dn = CL.down[idx];
+    if (Math.max(up, dn) * k < 0.4) continue;
+    ctx.beginPath();
+    const yw = sign * R;
+    ctx.moveTo(-2, Y(yw));
+    for (let px = -2; px <= W + 2; px += 3) {
+      const xw = V.viewX0 + px / view.kx;
+      const b = xw <= 0 ? 0 : 1 - Math.exp(-xw / (0.5 * L));
+      const th = (up * (1 - b) + dn * b) * (1 + 0.28 * noise1(xw * 2400 + idx));
+      ctx.lineTo(px, Y(yw - sign * Math.max(0, th)));
+    }
+    ctx.lineTo(W + 2, Y(yw)); ctx.closePath();
+    const gr = ctx.createLinearGradient(0, Y(yw), 0, Y(yw - sign * Math.max(up, dn) * 1.3));
+    gr.addColorStop(0, '#4d120d'); gr.addColorStop(1, '#8a2a1c');
+    ctx.fillStyle = gr; ctx.fill();
+    ctx.strokeStyle = 'rgba(232,200,160,0.35)'; ctx.lineWidth = 0.8; ctx.stroke();
+  }
+}
+
+function drawCells(front) {
+  const k = view.k, kx = view.kx, slice = V.cells === 'slice', R = SA.R;
+  const base = Math.max(3.2, Math.min(7.5, 0.035 * R * k));
+  for (let i = 0; i < RB.n; i++) {
+    let y = RB.y[i], z = RB.z[i]; const x = RB.x[i];
+    if (x > 0 && RB.mp[i]) [y, z] = downPos(RB.r0[i], RB.th[i], x);
+    if (!slice) { if (front ? z < 0 : z >= 0) continue; } else if (front) continue;
+    const px = X(x), py = Y(y);
+    if (px < -10 || px > view.W + 10) continue;
+    const depth = slice ? 1 : 0.55 + 0.45 * (z / R + 1) / 2;
+    const alpha = slice ? 0.95 : (front ? 0.5 : 0.85) * depth;
+    ctx.globalAlpha = alpha;
+    const ty = RB.ty[i];
+    if (ty === 0) {
+      const s = base * RB.sz[i] * (slice ? 1 : 0.75 + 0.35 * depth);
+      const tilt = Math.abs(Math.cos(RB.ph[i]));
+      const w = s * 2, h = s * 2 * (0.28 + 0.72 * tilt);
+      ctx.drawImage(SPR_RBC, px - w / 2, py - h / 2, w, h);
+    } else if (ty === 1) {
+      const s = base * 0.55 * RB.sz[i];
+      ctx.drawImage(SPR_PLT, px - s, py - s * 0.6, s * 2, s * 1.2);
+    } else {
+      const s = base * 1.7;
+      ctx.drawImage(SPR_WBC, px - s, py - s, s * 2, s * 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawCatheter() {
+  const k = view.k, kx = view.kx, e = SA.e, a = SA.a0, ri = SA.ri, xt = X(0), W = view.W;
+  if (xt < -40) return;
+  const yT = Y(e + a), yB = Y(e - a), cyC = Y(e), capW = Math.max(a * kx * 0.9, 4);
+  const sTop = CL.cath[0], sBot = CL.cath[M / 2], sMean = arrMean(CL.cath);
+  // fibrin sheath
+  if (sMean * k > 0.3 || Math.max(sTop, sBot) * k > 0.3) {
+    ctx.save();
+    ctx.beginPath();
+    const ya = Y(e + a + sTop), yb = Y(e - a - sBot);
+    ctx.moveTo(-5, ya);
+    for (let px = -5; px <= xt; px += 4) { const xw = V.viewX0 + px / kx; ctx.lineTo(px, Y(e + a + sTop * (1 + 0.25 * noise1(xw * 3000)))); }
+    ctx.ellipse(xt, (ya + yb) / 2, capW + sMean * kx * 1.4, (yb - ya) / 2, 0, -Math.PI / 2, Math.PI / 2);
+    for (let px = xt; px >= -5; px -= 4) { const xw = V.viewX0 + px / kx; ctx.lineTo(px, Y(e - a - sBot * (1 + 0.25 * noise1(xw * 3100 + 2)))); }
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(232,214,178,0.78)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,240,210,0.6)'; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.restore();
+  }
+  const tint = MATERIALS[P.mat].tint;
+  // body
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-5, yT); ctx.lineTo(xt, yT);
+  ctx.ellipse(xt, cyC, capW, a * k, 0, -Math.PI / 2, Math.PI / 2);
+  ctx.lineTo(-5, yB); ctx.closePath();
+  const gr = ctx.createLinearGradient(0, yT, 0, yB);
+  const [tr, tg, tb] = tint;
+  gr.addColorStop(0, `rgba(${tr * 0.62},${tg * 0.66},${tb * 0.7},0.92)`);
+  gr.addColorStop(0.18, `rgba(${tr},${tg},${tb},0.9)`);
+  gr.addColorStop(0.3, `rgba(255,255,255,0.95)`);
+  gr.addColorStop(0.42, `rgba(${tr},${tg},${tb},0.86)`);
+  gr.addColorStop(1, `rgba(${tr * 0.5},${tg * 0.55},${tb * 0.6},0.92)`);
+  ctx.fillStyle = gr; ctx.fill();
+  ctx.strokeStyle = 'rgba(40,60,80,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+  // lumen (translucent window)
+  const yl1 = Y(e + ri), yl2 = Y(e - ri);
+  const infusing = SA.net.Qin > 0, bloodIn = infusing && (SA.asp || P.infusate === 'blood');
+  const lgr = ctx.createLinearGradient(0, yl1, 0, yl2);
+  if (bloodIn) { lgr.addColorStop(0, 'rgba(110,14,26,0.85)'); lgr.addColorStop(0.5, 'rgba(150,26,38,0.8)'); lgr.addColorStop(1, 'rgba(100,12,22,0.85)'); }
+  else {
+    lgr.addColorStop(0, infusing ? 'rgba(60,120,170,0.55)' : 'rgba(70,40,50,0.5)');
+    lgr.addColorStop(0.5, infusing ? 'rgba(110,180,225,0.45)' : 'rgba(90,50,60,0.45)');
+    lgr.addColorStop(1, infusing ? 'rgba(50,100,150,0.6)' : 'rgba(60,30,40,0.55)');
+  }
+  ctx.fillStyle = lgr;
+  const lumEnd = P.endHole ? xt + capW * 0.98 : xt - Math.max(2, capW * 0.15);
+  ctx.fillRect(-5, yl1, lumEnd + 5, yl2 - yl1);
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.moveTo(-5, yl1); ctx.lineTo(lumEnd, yl1); ctx.moveTo(-5, yl2); ctx.lineTo(lumEnd, yl2); ctx.stroke();
+  if (P.endHole && CL.end > 0.02) { ctx.fillStyle = `rgba(90,20,14,${0.4 + 0.6 * CL.end})`; ctx.fillRect(xt + capW * 0.98 - capW * 1.4 * CL.end, yl1, capW * 1.4 * CL.end, yl2 - yl1); }
+  // lumen particles
+  ctx.save(); ctx.beginPath(); ctx.rect(-5, yl1, lumEnd + 5, yl2 - yl1); ctx.clip();
+  ctx.globalCompositeOperation = 'lighter';
+  const lspr = SA.asp ? SPR_ASP : P.infusate === 'blood' ? SPR_BLD : SPR_INF;
+  for (const p of LP) { const px = X(p.x), py = Y(e + p.ly); ctx.globalAlpha = 0.6; ctx.drawImage(lspr, px - 3, py - 3, 6, 6); }
+  ctx.restore();
+  // specular highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = Math.max(1, a * k * 0.08);
+  ctx.beginPath(); ctx.moveTo(-5, Y(e + a * 0.62)); ctx.lineTo(xt - capW * 0.3, Y(e + a * 0.62)); ctx.stroke();
+  ctx.restore();
+  // holes
+  P.holes.forEach((h, j) => drawHole(h, j));
+  flushHoleLabels();
+}
+function holeScreen(h) {
+  const th = h.ang * Math.PI / 180, e = SA.e, a = SA.a0;
+  return { x: X(-h.dist / 1000), y: Y(e + a * Math.cos(th)), front: Math.sin(th) >= -1e-6, s: Math.sin(th), c: Math.cos(th) };
+}
+const holeLabels = [];
+function flushHoleLabels() {
+  holeLabels.sort((a, b) => a.x - b.x);
+  const rows = { top: [], bot: [] };
+  ctx.save(); ctx.font = '600 10px "IBM Plex Mono", monospace'; ctx.textAlign = 'center';
+  for (const l of holeLabels) {
+    const w = ctx.measureText(l.text).width + 6, lane = rows[l.top ? 'top' : 'bot'];
+    let level = 0; while (lane.some(o => o.level === level && Math.abs(o.x - l.x) < (o.w + w) / 2)) level++;
+    if (level > 2) continue;
+    lane.push({ x: l.x, w, level });
+    const y = l.top ? l.y - level * 12 : l.y + level * 12;
+    ctx.fillStyle = 'rgba(10,6,8,0.55)'; roundRect(ctx, l.x - w / 2, y - 10, w, 13, 4); ctx.fill();
+    ctx.fillStyle = l.sel ? '#ffd166' : 'rgba(240,230,232,0.95)'; ctx.fillText(l.text, l.x, y);
+  }
+  ctx.restore(); holeLabels.length = 0;
+}
+function drawHole(h, j) {
+  const k = view.k, kx = view.kx, hs = holeScreen(h);
+  if (hs.x < -20 || hs.x > view.W + 20) return;
+  const rx = Math.max(1.6, h.dia / 2000 * kx), ry = Math.max(1.2, h.dia / 2000 * k * Math.max(Math.abs(hs.s), 0.18));
+  const net = SA.net.holes[j] || { v: 0 };
+  const sel = V.selected === h.id;
+  ctx.save();
+  if (hs.front) {
+    ctx.beginPath(); ctx.ellipse(hs.x, hs.y, rx, ry, 0, 0, TAU);
+    const flow = clamp(net.v / 0.5, 0, 1);
+    ctx.fillStyle = SA.asp ? `rgba(${60 + 170 * flow},${14 + 40 * flow},${22 + 30 * flow},0.95)` : `rgba(${20 + 60 * flow},${40 + 120 * flow},${70 + 150 * flow},0.95)`; ctx.fill();
+    if (SA.asp && SA.jets[j] && SA.jets[j].sealed) { ctx.strokeStyle = 'rgba(255,90,120,0.95)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(hs.x - rx, hs.y - ry); ctx.lineTo(hs.x + rx, hs.y + ry); ctx.moveTo(hs.x + rx, hs.y - ry); ctx.lineTo(hs.x - rx, hs.y + ry); ctx.stroke(); }
+    if ((h.occ || 0) > 0.02) { ctx.beginPath(); ctx.ellipse(hs.x, hs.y, rx * Math.sqrt(h.occ), ry * Math.sqrt(h.occ), 0, 0, TAU); ctx.fillStyle = '#6a1a12'; ctx.fill(); }
+    ctx.strokeStyle = sel ? '#ffd166' : 'rgba(20,30,45,0.9)'; ctx.lineWidth = sel ? 2 : 1; ctx.beginPath(); ctx.ellipse(hs.x, hs.y, rx, ry, 0, 0, TAU); ctx.stroke();
+  } else {
+    ctx.setLineDash([2, 2]); ctx.strokeStyle = sel ? '#ffd166' : 'rgba(30,50,70,0.55)'; ctx.lineWidth = sel ? 1.6 : 1;
+    ctx.beginPath(); ctx.ellipse(hs.x, hs.y, rx, ry, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (sel) { ctx.strokeStyle = 'rgba(255,209,102,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hs.x, hs.y, Math.max(rx, ry) + 6, 0, TAU); ctx.stroke(); }
+  if (V.labels) {
+    const pct = SA.net.Qin > 0 ? (SA.net.holes[j].q / SA.net.Qin * 100) : 0;
+    const top = hs.c >= 0;
+    holeLabels.push({ x: hs.x, y: top ? Y(SA.e + SA.a0) - 9 : Y(SA.e - SA.a0) + 18, top, sel, text: `${j + 1}${hs.front ? '' : ' back'} · ${pct.toFixed(pct < 10 ? 1 : 0)}%` });
+  }
+  ctx.restore();
+}
+function drawJets(front) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const slice = V.cells === 'slice', R = SA.R;
+  const blood = SA.asp || P.infusate === 'blood';
+  const spr = blood ? SPR_BLD : SPR_INF;
+  for (const p of JP) {
+    const z = p.passive ? (p.pz !== undefined ? p.pz : p.z) : p.z;
+    if (!slice && (front ? z < SA.a0 * 0.2 : z >= SA.a0 * 0.2)) continue;
+    if (slice && front) continue;
+    const y = p.passive ? (p.py !== undefined ? p.py : p.y) : p.y;
+    const px = X(p.x), py = Y(y);
+    if (px < -10 || px > view.W + 10) continue;
+    const fade = 1 - p.real / p.life;
+    const depth = 0.7 + 0.3 * clamp(z / R, -1, 1);
+    if (p.kind === 2) { ctx.globalAlpha = clamp(0.95 * Math.min(1, p.real * 4) * depth, 0, 1); ctx.drawImage(SPR_ASP, px - 3.6, py - 3.6, 7.2, 7.2); continue; }
+    const s = (p.passive ? 4.5 : 3.6) * (0.85 + 0.3 * depth);
+    ctx.globalAlpha = clamp(fade * (p.passive ? 0.45 : 0.85) * depth, 0, 1);
+    ctx.drawImage(spr, px - s, py - s, 2 * s, 2 * s);
+  }
+  ctx.restore();
+}
+function drawAnnotations() {
+  const W = view.W, H = view.H, R = SA.R, k = view.k, cy = view.cy;
+  // velocity profile at left
+  const x0 = 46, mm = LV.main;
+  let umax = 1e-9; for (let i = 0; i <= 60; i++) { const yw = -R + 2 * R * i / 60; umax = Math.max(umax, Math.abs(mm.sampleU(yw, 0))); }
+  drawAnnotations.um = Math.max(umax, (drawAnnotations.um || umax) * 0.995);
+  const sc = 120 / drawAnnotations.um;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,214,140,0.95)'; ctx.fillStyle = 'rgba(255,214,140,0.95)'; ctx.lineWidth = 1.2;
+  ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x0, Y(R)); ctx.lineTo(x0, Y(-R)); ctx.stroke(); ctx.setLineDash([]);
+  for (let i = 1; i < 18; i++) {
+    const yw = -R + 2 * R * i / 18, u = mm.sampleU(yw, 0), len = u * sc;
+    if (Math.abs(len) < 2) continue;
+    const yy = Y(yw);
+    ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x0 + len, yy); ctx.stroke();
+    const dir = Math.sign(len);
+    ctx.beginPath(); ctx.moveTo(x0 + len, yy); ctx.lineTo(x0 + len - 5 * dir, yy - 3); ctx.lineTo(x0 + len - 5 * dir, yy + 3); ctx.closePath(); ctx.fill();
+  }
+  ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i <= 80; i++) { const yw = -R + 2 * R * i / 80, xx = x0 + mm.sampleU(yw, 0) * sc, yy = Y(yw); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+  ctx.stroke();
+  ctx.font = '600 10.5px "IBM Plex Mono", monospace'; ctx.textAlign = 'left';
+  const plab = `velocity profile · peak ${(umax * 100).toFixed(1)} cm/s`, pw = ctx.measureText(plab).width;
+  ctx.fillStyle = 'rgba(10,6,8,0.72)'; roundRect(ctx, x0 - 4, Y(R) + 4, pw + 12, 17, 5); ctx.fill();
+  ctx.fillStyle = 'rgba(255,214,140,0.98)'; ctx.fillText(plab, x0 + 2, Y(R) + 16);
+  ctx.restore();
+  // waveform strip
+  ctx.save();
+  ctx.font = '600 9.5px "Public Sans", sans-serif';
+  const narrow = W < 640;
+  const wtitle = narrow ? 'Flow waveform' : `Flow waveform · ${WAVES[P.wave]}`, ww = narrow ? 104 : Math.max(180, ctx.measureText(wtitle).width), wh = 38, T = cyclePeriod(P);
+  const wx = W - ww - 18, wy = 14;
+  ctx.fillStyle = 'rgba(10,6,8,0.62)'; roundRect(ctx, wx - 8, wy - 8, ww + 16, wh + 22, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(240,225,228,0.88)'; ctx.textAlign = 'left';
+  ctx.fillText(wtitle, wx, wy + 4);
+  let wmax = 0.01, wmin = 0; const pts = [];
+  const t0 = Math.floor(LV.t / T) * T;
+  for (let i = 0; i <= 90; i++) { const v = waveFactor(P.wave, t0 + T * i / 90, P.hr, P.rr); pts.push(v); wmax = Math.max(wmax, v); wmin = Math.min(wmin, v); }
+  const wyv = v => wy + 12 + (wh - 6) * (1 - (v - wmin) / (wmax - wmin || 1));
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.moveTo(wx, wyv(0)); ctx.lineTo(wx + ww, wyv(0)); ctx.stroke();
+  ctx.strokeStyle = '#ff8a95'; ctx.lineWidth = 1.5; ctx.beginPath();
+  pts.forEach((v, i) => { const xx = wx + ww * i / 90; i ? ctx.lineTo(xx, wyv(v)) : ctx.moveTo(xx, wyv(v)); }); ctx.stroke();
+  const ph = (LV.t - t0) / T, cv = waveFactor(P.wave, LV.t, P.hr, P.rr);
+  ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(wx + ww * ph, wyv(cv), 3.2, 0, TAU); ctx.fill();
+  ctx.restore();
+  // flow arrow + scale bar
+  ctx.save();
+  ctx.font = '600 11px "Public Sans", sans-serif'; ctx.fillStyle = 'rgba(255,230,232,0.85)'; ctx.textAlign = 'left';
+  const flowLab = W < 640 ? (SA.net.Qin > 0 ? (SA.asp ? `Flow →  withdrawing ${fmt(P.inf)} mL/min` : `Flow →  infusing ${fmt(P.inf)} mL/min`) : 'Flow →  locked') : (SA.net.Qin > 0 ? (SA.asp ? `Blood flow  →     Catheter withdrawing ${fmt(P.inf)} mL/min` : `Blood flow  →     Catheter infusing ${fmt(P.inf)} mL/min`) : 'Blood flow  →     Catheter locked');
+  ctx.fillText(flowLab, 14, Y(R) - Math.max(14, R * k * (P.vtype === 'artery' ? 0.24 : 0.1)) - 22 > 12 ? Y(R) - Math.max(14, R * k * (P.vtype === 'artery' ? 0.24 : 0.1)) - 22 : 16);
+  const mmPx = view.kx / 1000; let barMm = 1; while (barMm * mmPx < 40) barMm *= barMm === 1 ? 2 : 2.5; while (barMm * mmPx > 160 && barMm > 0.1) barMm /= 2;
+  const bx = W - 20 - barMm * mmPx, by = H - 16;
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + barMm * mmPx, by); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.textAlign = 'right'; ctx.font = '500 10px "IBM Plex Mono", monospace';
+  ctx.fillText(`${barMm} mm${V.zoom !== 1 ? ' (axial)' : ''}`, W - 20, by - 6);
+  // impingement markers
+  if (V.labels) {
+    SA.jets.forEach((J, j) => {
+      if (!J.impinge || J.tauImp < 1) return;
+      const h = P.holes[j]; if (!h) return;
+      const wy2 = Math.cos(J.phiW) * R, sd = Math.sin(J.phiW);
+      if (Math.abs(sd) > 0.6) return;
+      const xh = X(-h.dist / 1000 + (J.r * J.d) * Math.pow(J.gap / (2.05 * J.r * J.d), 1 / 0.28));
+      const yy = Y(Math.sign(wy2) * R);
+      const crit = J.tauImp > FRY;
+      ctx.strokeStyle = crit ? 'rgba(255,90,120,0.95)' : 'rgba(255,209,102,0.85)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(xh, yy, 7, 0, TAU); ctx.stroke();
+      ctx.fillStyle = ctx.strokeStyle; ctx.textAlign = 'center'; ctx.font = '600 9.5px "IBM Plex Mono", monospace';
+      ctx.fillText(`${J.tauImp.toFixed(0)} Pa`, xh, yy + (wy2 > 0 ? -11 : 19));
+    });
+  }
+  // overlay legend
+  if (V.overlay !== 'none') {
+    const sc = fieldScale(V.overlay), lw = 150, lx = W - lw - 20, ly = H - 40;
+    for (let i = 0; i < lw; i++) { const [r, g, b] = cmap(V.overlay, i / lw); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(lx + i, ly, 1, 8); }
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '500 9.5px "IBM Plex Mono", monospace'; ctx.textAlign = 'left';
+    const lab = { u: ['cm/s', v => (v * 100).toFixed(1)], g: ['s⁻¹', v => Math.round(Math.pow(10, v) - 1)], mu: ['mPa·s', v => v.toFixed(1)], pc: ['', v => v.toFixed(1)] }[V.overlay];
+    ctx.fillText(`${lab[1](sc.lo)}`, lx, ly - 3); ctx.textAlign = 'right'; ctx.fillText(`${lab[1](sc.hi)} ${lab[0]}`, lx + lw, ly - 3);
+  }
+  ctx.restore();
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+
+function renderView() {
+  if (!SA || !LV.main) return;
+  const f = fit(cvView); view.W = f.W; view.H = f.H; view.dpr = f.dpr;
+  ctx.setTransform(f.dpr, 0, 0, f.dpr, 0, 0);
+  const R = SA.R;
+  const oldKx = view.kx, oldW = view.lastW;
+  view.k = (view.H * 0.34) / R; view.kx = view.k * V.zoom; view.cy = view.H * 0.53;
+  if (V.viewX0 !== null && oldW && (oldW !== view.W || oldKx !== view.kx) && !drag) {
+    const tipFrac = (0 - V.viewX0) * oldKx / oldW;     // keep the tip at the same place on screen
+    V.viewX0 = -tipFrac * view.W / view.kx;
+  }
+  view.lastW = view.W;
+  if (V.viewX0 === null) V.viewX0 = -0.7 * view.W / view.kx;
+  const gk = [R, Math.round(view.W), Math.round(view.H)].join('|');
+  if (RB.n === 0 || view.gk !== gk) { view.gk = gk; resetParticles(); }
+  drawBackground();
+  drawOverlay();
+  drawMural();
+  drawCells(false);
+  drawJets(false);
+  drawCatheter();
+  drawJets(true);
+  drawCells(true);
+  drawAnnotations();
+  drawHover();
+}
+function drawHover() {
+  const hv = V.hover;
+  if (!hv || !SA) { tipEl.hidden = true; return; }
+  const xw = V.viewX0 + hv.px / view.kx, yw = (view.cy - hv.py) / view.k, R = SA.R;
+  const lines = [];
+  const hole = hitHole(hv.px, hv.py);
+  if (hole) {
+    const j = P.holes.indexOf(hole), n = SA.net.holes[j], J = SA.jets[j];
+    lines.push(`Hole ${j + 1} · ${hole.dia.toFixed(2)} mm · ${hole.ang}°`);
+    lines.push(`flow ${(n.q * 6e7).toFixed(3)} mL/min (${SA.net.Qin > 0 ? (n.q / SA.net.Qin * 100).toFixed(1) : 0}%)`);
+    lines.push(`${SA.asp ? 'inflow' : 'jet'} ${n.v.toFixed(3)} m/s · Re ${J ? J.Re.toFixed(0) : 0}`);
+    if (J && J.impinge) lines.push(`hits wall: ${J.tauImp.toFixed(1)} Pa`);
+    if (J && J.inlet && J.q > 0) lines.push(`capture radius ${(J.rc * 1000).toFixed(2)} mm`);
+    if (J && J.sealed) lines.push('sealed against vessel wall');
+    lines.push(`occlusion ${((hole.occ || 0) * 100).toFixed(0)}%`);
+  } else if (Math.abs(yw) < R) {
+    const inC = xw < 0 && Math.abs(yw - SA.e) < SA.a0;
+    if (inC) { lines.push('Catheter'); lines.push(`lumen ${(SA.ri * 2000).toFixed(2)} mm · ${(SA.net.lumenV * 100).toFixed(1)} cm/s`); }
+    else {
+      let py = yw, pz = 0;
+      const u = localU(xw, py, pz), g = localG(xw, py, pz), mu = visc(g, SA.hf, SA.newt);
+      lines.push(`${xw < 0 ? 'Along catheter' : 'Past tip ' + (xw * 1000).toFixed(1) + ' mm'}`);
+      lines.push(`velocity ${(u * 100).toFixed(2)} cm/s`);
+      lines.push(`shear rate ${g.toFixed(0)} s⁻¹`);
+      lines.push(`viscosity ${(mu * 1e3).toFixed(2)} mPa·s`);
+      lines.push(`shear stress ${(mu * g).toFixed(2)} Pa`);
+      lines.push(`coag. propensity ${Pc(g).toFixed(2)}`);
+    }
+  } else { lines.push(P.vtype === 'artery' ? 'Arterial wall' : 'Vein wall'); lines.push(`wall shear ${SA.wallGmean.toFixed(0)} s⁻¹ mean`); }
+  tipEl.textContent = '';
+  lines.forEach((l, i) => { const d = document.createElement('div'); d.textContent = l; if (i === 0) d.style.color = '#ffd166'; tipEl.appendChild(d); });
+  tipEl.hidden = false;
+  const tx = Math.min(hv.px, view.W - 190), ty = Math.min(hv.py, view.H - 120);
+  tipEl.style.left = tx + 'px'; tipEl.style.top = ty + 'px';
+}
+
+/* ================= cross-section render ================= */
+let xsImg = null;
+const XS = { s: 1, cx: 0, cy: 0 };
+function renderXS() {
+  if (!SA || !LV.main) return;
+  const f = fit(cvXs), g = xctx; g.setTransform(f.dpr, 0, 0, f.dpr, 0, 0);
+  const W = f.W, H = f.H, R = SA.R, mm = LV.main, N = mm.N;
+  const wallFrac = P.vtype === 'artery' ? 0.24 : 0.1;
+  const s = (Math.min(W, H) / 2 - 10) / (R * (1 + wallFrac + 0.05));
+  XS.s = s; XS.cx = W / 2; XS.cy = H / 2;
+  const cx = W / 2, cy = H / 2;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = '#2b1518'; g.fillRect(0, 0, W, H);
+  // wall ring
+  g.beginPath(); g.arc(cx, cy, R * s * (1 + wallFrac), 0, TAU); g.fillStyle = P.vtype === 'artery' ? '#b9626a' : '#a85a64'; g.fill();
+  g.beginPath(); g.arc(cx, cy, R * s * (1 + wallFrac * 1.6), 0, TAU); g.strokeStyle = 'rgba(160,110,95,0.6)'; g.lineWidth = R * s * wallFrac * 0.8; g.stroke();
+  // field
+  const field = V.xsField, sc = fieldScale(field);
+  if (!xsImg || xsImg.width !== N) xsImg = g.createImageData(N, N);
+  const d = xsImg.data;
+  for (let k = 0; k < N * N; k++) {
+    const o = k * 4;
+    if (!mm.fl[k]) { d[o + 3] = 0; continue; }
+    const v = fieldValue(field, mm, k), t = (sc.f(v) - sc.lo) / (sc.hi - sc.lo || 1);
+    const [r, gg, b] = cmap(field, t);
+    d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
+  }
+  if (!renderXS.cv) renderXS.cv = document.createElement('canvas');
+  const oc = renderXS.cv; oc.width = N; oc.height = N; oc.getContext('2d').putImageData(xsImg, 0, 0);
+  g.save();
+  g.beginPath(); g.arc(cx, cy, R * s, 0, TAU); g.fillStyle = '#300a10'; g.fill(); g.clip();
+  g.imageSmoothingEnabled = true;
+  const h = mm.h, half = (R + h / 2) * s;
+  g.drawImage(oc, cx - half, cy - half, 2 * half, 2 * half);
+  // mural thrombus ring
+  g.beginPath();
+  for (let i = 0; i <= 96; i++) { const ph = i / 96 * TAU, r = (R - interpA(CL.wall, ph)) * s; const x = cx + Math.sin(ph) * r, y = cy - Math.cos(ph) * r; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  for (let i = 96; i >= 0; i--) { const ph = i / 96 * TAU; g.lineTo(cx + Math.sin(ph) * R * s * 1.01, cy - Math.cos(ph) * R * s * 1.01); }
+  g.fillStyle = '#6b1a12'; g.fill('evenodd');
+  g.restore();
+  g.beginPath(); g.arc(cx, cy, R * s, 0, TAU); g.strokeStyle = 'rgba(255,214,214,0.9)'; g.lineWidth = 1.4; g.stroke();
+  // catheter
+  const ecx = cx, ecy = cy - SA.e * s, a = SA.a0;
+  g.beginPath();
+  for (let i = 0; i <= 96; i++) { const ph = i / 96 * TAU, r = (a + interpA(CL.cath, ph)) * s; const x = ecx + Math.sin(ph) * r, y = ecy - Math.cos(ph) * r; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.closePath(); g.fillStyle = 'rgba(232,214,178,0.9)'; g.fill();
+  const tint = MATERIALS[P.mat].tint;
+  const cg = g.createRadialGradient(ecx - a * s * 0.35, ecy - a * s * 0.35, a * s * 0.1, ecx, ecy, a * s);
+  cg.addColorStop(0, '#ffffff'); cg.addColorStop(1, `rgb(${tint[0] * 0.7},${tint[1] * 0.75},${tint[2] * 0.8})`);
+  g.beginPath(); g.arc(ecx, ecy, a * s, 0, TAU); g.fillStyle = cg; g.fill(); g.strokeStyle = 'rgba(30,50,70,0.7)'; g.lineWidth = 1; g.stroke();
+  g.beginPath(); g.arc(ecx, ecy, SA.ri * s, 0, TAU); g.fillStyle = SA.net.Qin > 0 ? (SA.asp || P.infusate === 'blood' ? 'rgba(150,26,38,0.9)' : 'rgba(80,150,205,0.85)') : 'rgba(70,40,50,0.85)'; g.fill();
+  // holes and jets
+  P.holes.forEach((hh, j) => {
+    const J = SA.jets[j]; if (!J) return;
+    const th = J.th, ux = Math.sin(th), uy = -Math.cos(th);
+    const rc = a + interpA(CL.cath, th);
+    const x1 = ecx + ux * rc * s, y1 = ecy + uy * rc * s;
+    const sel = V.selected === hh.id;
+    if (J.inlet) {
+      if (J.sealed) { g.strokeStyle = 'rgba(255,90,120,0.95)'; g.lineWidth = 2; g.beginPath(); g.arc(x1 + ux * 4, y1 + uy * 4, 6, 0, TAU); g.stroke(); }
+      else if (J.q > 0) {
+        const L = Math.max(J.rc * s, 8);
+        g.strokeStyle = 'rgba(255,130,120,0.9)'; g.fillStyle = 'rgba(255,130,120,0.9)'; g.lineWidth = 1.4;
+        for (const da of [-0.7, 0, 0.7]) {
+          const vx = Math.sin(th + da), vy = -Math.cos(th + da);
+          const sx = x1 + vx * L, sy = y1 + vy * L, ex = x1 + vx * 4, ey = y1 + vy * 4;
+          g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+          g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex + vx * 5 - vy * 3, ey + vy * 5 + vx * 3); g.lineTo(ex + vx * 5 + vy * 3, ey + vy * 5 - vx * 3); g.closePath(); g.fill();
+        }
+      }
+    } else if (J.v > 0) {
+      const L = Math.min(J.gap, Math.max(J.pen, J.impinge ? J.gap : 0)) * s;
+      const gj = g.createLinearGradient(x1, y1, x1 + ux * L, y1 + uy * L);
+      gj.addColorStop(0, 'rgba(200,240,255,0.95)'); gj.addColorStop(1, 'rgba(90,180,255,0.15)');
+      g.strokeStyle = gj; g.lineWidth = Math.max(2, J.d * s * 1.2); g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x1 + ux * L, y1 + uy * L); g.stroke();
+      if (J.impinge && J.tauImp > 1) {
+        const wx = cx + Math.sin(J.phiW) * R * s, wy = cy - Math.cos(J.phiW) * R * s;
+        g.strokeStyle = J.tauImp > FRY ? 'rgba(255,90,120,0.95)' : 'rgba(255,209,102,0.9)'; g.lineWidth = 2;
+        g.beginPath(); g.arc(wx, wy, 5, 0, TAU); g.stroke();
+      }
+    }
+    g.beginPath(); g.arc(x1, y1, sel ? 5 : 3.5, 0, TAU); g.fillStyle = sel ? '#ffd166' : '#16314a'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke();
+    if (V.labels) { g.fillStyle = sel ? '#ffd166' : 'rgba(255,255,255,0.85)'; g.font = '600 9.5px "IBM Plex Mono", monospace'; g.textAlign = 'center'; g.fillText(String(j + 1), x1 + ux * 12, y1 + uy * 12 + 3); }
+  });
+  // orientation labels
+  g.fillStyle = 'rgba(255,240,240,0.8)'; g.font = '600 9.5px "Public Sans", sans-serif'; g.textAlign = 'center';
+  g.fillText('top 0°', cx, 12); g.fillText('bottom 180°', cx, H - 5);
+  g.textAlign = 'right'; g.fillText('camera 90° →', W - 6, cy - R * s * (1 + wallFrac) - 4 > 20 ? cy - R * s * (1 + wallFrac) - 4 : 24);
+}
+
+/* ================= interaction: side view ================= */
+let drag = null;
+function hitHole(px, py) {
+  let best = null, bd = 1e9;
+  for (const h of P.holes) {
+    const hs = holeScreen(h), rx = Math.max(7, h.dia / 2000 * view.kx + 4);
+    const d = Math.hypot((px - hs.x) / Math.max(rx, 1), (py - hs.y) / Math.max(7, h.dia / 2000 * view.k + 4));
+    const score = d + (hs.front ? 0 : 0.5);
+    if (d < 1 && score < bd) { bd = score; best = h; }
+  }
+  return best;
+}
+function onCatheter(px, py) {
+  const xw = V.viewX0 + px / view.kx, yw = (view.cy - py) / view.k;
+  return xw < -0.2e-3 && Math.abs(yw - SA.e) <= SA.a0 + 3 / view.k;
+}
+function angFromY(py, back) {
+  const yw = (view.cy - py) / view.k, c = clamp((yw - SA.e) / SA.a0, -1, 1);
+  let ang = Math.acos(c) * 180 / Math.PI;
+  if (back) ang = 360 - ang;
+  return Math.round(ang) % 360;
+}
+function evPos(ev, cv) { const r = cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; }
+cvView.addEventListener('pointerdown', ev => {
+  if (!SA) return;
+  const [px, py] = evPos(ev, cvView);
+  cvView.setPointerCapture(ev.pointerId);
+  const h = hitHole(px, py);
+  if (h) { V.selected = h.id; drag = { kind: 'hole', h, back: h.ang > 180, moved: false }; updateHoleTable(); return; }
+  if (onCatheter(px, py)) {
+    const xw = V.viewX0 + px / view.kx;
+    const nh = { id: HID++, dist: +clamp(-xw * 1000, 0.5, P.len * 10).toFixed(2), ang: angFromY(py, false), dia: +(Math.min(+document.getElementById('gDia').value, SA.ri * 2000 * 0.95)).toFixed(2), occ: 0 };
+    P.holes.push(nh); V.selected = nh.id; drag = { kind: 'hole', h: nh, back: false, moved: true };
+    changed(); toast(`Added hole ${P.holes.length}`); return;
+  }
+  drag = { kind: 'pan', px, x0: V.viewX0 };
+  V.selected = null; updateHoleTable();
+});
+cvView.addEventListener('pointermove', ev => {
+  const [px, py] = evPos(ev, cvView);
+  V.hover = { px, py };
+  if (!drag) { cvView.style.cursor = hitHole(px, py) ? 'grab' : (SA && onCatheter(px, py) ? 'copy' : 'crosshair'); return; }
+  if (drag.kind === 'pan') { V.viewX0 = drag.x0 - (px - drag.px) / view.kx; }
+  else if (drag.kind === 'hole') {
+    const xw = V.viewX0 + px / view.kx;
+    drag.h.dist = +clamp(-xw * 1000, 0.5, P.len * 10).toFixed(2);
+    drag.h.ang = angFromY(py, drag.back);
+    drag.moved = true; changed(true);
+  }
+});
+const endDrag = () => { if (drag && drag.kind === 'hole' && drag.moved) changed(); drag = null; };
+cvView.addEventListener('pointerup', endDrag);
+cvView.addEventListener('pointercancel', endDrag);
+cvView.addEventListener('pointerleave', () => { V.hover = null; tipEl.hidden = true; });
+cvView.addEventListener('wheel', ev => {
+  if (!SA) return;
+  const [px, py] = evPos(ev, cvView);
+  const h = hitHole(px, py);
+  ev.preventDefault();
+  if (h) { h.dia = +clamp(h.dia * (ev.deltaY < 0 ? 1.06 : 1 / 1.06), 0.05, SA.ri * 2000 * 0.98).toFixed(3); V.selected = h.id; changed(); return; }
+  const xw = V.viewX0 + px / view.kx;
+  V.zoom = clamp(V.zoom * Math.exp(-ev.deltaY * 0.0012), 0.15, 4);
+  view.kx = view.k * V.zoom; V.viewX0 = xw - px / view.kx;
+  syncUI();
+}, { passive: false });
+cvView.addEventListener('keydown', ev => {
+  const h = P.holes.find(q => q.id === V.selected); if (!h) return;
+  let used = true;
+  if (ev.key === 'Delete' || ev.key === 'Backspace') { deleteHole(h.id); }
+  else if (ev.key === 'ArrowLeft') { h.dist = +(h.dist + 0.5).toFixed(2); }
+  else if (ev.key === 'ArrowRight') { h.dist = +Math.max(0.5, h.dist - 0.5).toFixed(2); }
+  else if (ev.key === 'ArrowUp') { h.ang = (h.ang + 355) % 360; }
+  else if (ev.key === 'ArrowDown') { h.ang = (h.ang + 5) % 360; }
+  else if (ev.key === '+' || ev.key === '=') { h.dia = +Math.min(SA.ri * 2000 * 0.98, h.dia * 1.06).toFixed(3); }
+  else if (ev.key === '-') { h.dia = +Math.max(0.05, h.dia / 1.06).toFixed(3); }
+  else used = false;
+  if (used) { ev.preventDefault(); changed(); }
+});
+function deleteHole(id) { const i = P.holes.findIndex(q => q.id === id); if (i >= 0) { P.holes.splice(i, 1); V.selected = null; changed(); toast('Hole removed'); } }
+
+/* ================= interaction: cross-section ================= */
+let xdrag = null;
+cvXs.addEventListener('pointerdown', ev => {
+  if (!SA) return;
+  const [px, py] = evPos(ev, cvXs), s = XS.s;
+  const ecx = XS.cx, ecy = XS.cy - SA.e * s;
+  for (const h of P.holes) {
+    const th = h.ang * Math.PI / 180, rc = SA.a0 + interpA(CL.cath, th);
+    const x1 = ecx + Math.sin(th) * rc * s, y1 = ecy - Math.cos(th) * rc * s;
+    if (Math.hypot(px - x1, py - y1) < 9) { xdrag = { kind: 'hole', h }; V.selected = h.id; cvXs.setPointerCapture(ev.pointerId); updateHoleTable(); return; }
+  }
+  if (Math.hypot(px - ecx, py - ecy) < SA.a0 * s + 6) { xdrag = { kind: 'cath' }; cvXs.setPointerCapture(ev.pointerId); }
+});
+cvXs.addEventListener('pointermove', ev => {
+  if (!xdrag || !SA) return;
+  const [px, py] = evPos(ev, cvXs), s = XS.s;
+  if (xdrag.kind === 'cath') {
+    const yw = (XS.cy - py) / s;
+    P.ecc = +clamp(SA.emax > 0 ? -yw / SA.emax : 0, -1, 1).toFixed(2);
+    syncUI(); requestSA(80);
+  } else {
+    const ecx = XS.cx, ecy = XS.cy - SA.e * s;
+    const ang = Math.atan2(px - ecx, -(py - ecy)) * 180 / Math.PI;
+    xdrag.h.ang = Math.round((ang + 360) % 360);
+    changed(true);
+  }
+});
+const endX = () => { if (xdrag) changed(); xdrag = null; };
+cvXs.addEventListener('pointerup', endX); cvXs.addEventListener('pointercancel', endX);
+
+/* ================= UI binding ================= */
+const $ = id => document.getElementById(id);
+const logMap = (s, lo, hi) => lo * Math.pow(hi / lo, s / 1000);
+const logInv = (v, lo, hi) => 1000 * Math.log(v / lo) / Math.log(hi / lo);
+function fillSelect(sel, obj, labelKey) { sel.textContent = ''; for (const k in obj) { const o = document.createElement('option'); o.value = k; o.textContent = labelKey ? obj[k][labelKey] : obj[k]; sel.appendChild(o); } }
+fillSelect($('preset'), PRESETS, 'label');
+fillSelect($('wave'), WAVES); fillSelect($('mat'), MATERIALS, 'name'); fillSelect($('infusate'), INFUSATES, 'name');
+fillSelect($('coag'), COAG, 'name'); fillSelect($('ac'), AC, 'name');
+
+function gaugeOf(odmm) { let best = null, bd = 1e9; for (const [g, od] of GAUGES) { const d = Math.abs(od - odmm); if (d < bd) { bd = d; best = g; } } return bd < 0.12 ? `≈ ${best} G` : ''; }
+function syncUI() {
+  $('preset').value = P.preset in PRESETS ? P.preset : 'picc';
+  $('D').value = P.D; $('oD').textContent = `${P.D.toFixed(1)} mm`;
+  $('Q').value = logInv(Math.max(P.Q, 1), 1, 5000); $('oQ').textContent = `${fmt(P.Q)} mL/min`;
+  $('wave').value = P.wave; $('hr').value = P.hr; $('ohr').textContent = `${P.hr} /min`; $('rr').value = P.rr; $('orr').textContent = `${P.rr} /min`;
+  $('vtype').value = P.vtype; $('Pv').value = P.Pv; $('oPv').textContent = `${P.Pv} mmHg`;
+  $('share').value = P.share; $('oshare').textContent = P.share.toFixed(2);
+  $('fr').value = P.fr; const od = P.fr / 3; $('ofr').textContent = `${P.fr.toFixed(1)} Fr`;
+  $('frNote').textContent = `Outer diameter ${od.toFixed(2)} mm ${gaugeOf(od)} · catheter-to-vessel ratio ${(od / P.D).toFixed(2)}`;
+  $('wallT').max = Math.max(0.06, od / 2 - 0.05).toFixed(2);
+  $('wallT').value = P.wallT; $('owallT').textContent = `${P.wallT.toFixed(2)} mm`;
+  $('idNote').textContent = `Lumen inner diameter ${Math.max(0.08, od - 2 * P.wallT).toFixed(2)} mm`;
+  $('len').value = P.len; $('olen').textContent = `${P.len.toFixed(1)} cm`;
+  $('ecc').value = P.ecc; $('oecc').textContent = Math.abs(P.ecc) < 0.01 ? 'Centered' : `${P.ecc > 0 ? 'Toward bottom' : 'Toward top'} ${Math.abs(P.ecc * 100).toFixed(0)}%`;
+  $('mat').value = P.mat;
+  $('endHole').checked = P.endHole; $('endDiaRow').hidden = !P.endHole;
+  const idmm = Math.max(0.08, od - 2 * P.wallT);
+  $('endDia').max = idmm.toFixed(2); $('endDia').value = P.endDia ? Math.min(P.endDia, idmm) : idmm;
+  $('oendDia').textContent = `${(P.endDia ? Math.min(P.endDia, idmm) : idmm).toFixed(2)} mm${P.endDia ? '' : ' (full lumen)'}`;
+  $('infusate').value = P.infusate;
+  const asp = P.mode === 'aspirate';
+  $('modeOut').checked = !asp; $('modeIn').checked = asp;
+  $('infusateRow').hidden = asp;
+  $('infLabel').textContent = asp ? 'Withdrawal rate' : 'Infusion rate';
+  $('modeHint').textContent = asp ? 'Blood is drawn into the catheter through its holes, as in a blood draw or the withdrawal lumen of a dialysis catheter.' : 'Fluid leaves the catheter through its holes, as in an infusion or the return lumen of a dialysis catheter.';
+  $('legInf').lastChild.textContent = asp ? 'Blood drawn in' : 'Infusate';
+  $('legInf').firstChild.style.background = asp ? '#ffb070' : '#7fd0ff';
+  $('inf').value = P.inf <= 0 ? 0 : logInv(Math.max(P.inf, 0.01), 0.01, 300); $('oinf').textContent = P.inf <= 0 ? 'Off' : `${fmt(P.inf)} mL/min`;
+  $('infNote').textContent = P.inf > 0 ? `${fmt(P.inf * 60)} mL/h · ${fmt(P.inf / 60)} mL/s` : 'Catheter locked. Nothing flows through it.';
+  $('hct').value = P.hct; $('ohct').textContent = `${P.hct}%`;
+  $('rheo').value = P.rheo; $('coag').value = P.coag; $('ac').value = P.ac;
+  $('overlay').value = V.overlay; $('cells').value = V.cells;
+  $('slowmo').value = 1000 * (1 + Math.log10(V.slowmo) / 2.7); $('oslowmo').textContent = V.slowmo >= 0.999 ? 'Real time' : `1/${Math.round(1 / V.slowmo)} speed`;
+  $('zoom').value = V.zoom; $('ozoom').textContent = `${V.zoom.toFixed(2)}×`;
+  $('labels').checked = V.labels;
+  $('clockRate').value = String(V.clockRate);
+  for (const id of ['gN', 'gSpacing', 'gFirst', 'gDia', 'gTaper']) syncGen(id);
+  $('gDia').max = Math.max(0.1, idmm * 0.98).toFixed(2);
+  $('hDia').max = Math.max(0.1, idmm * 0.98).toFixed(2);
+  $('hDist').max = Math.max(1, P.len * 10).toFixed(0);
+}
+function syncGen(id) {
+  const v = +$(id).value, o = $('o' + id);
+  o.textContent = id === 'gN' ? String(v) : id === 'gTaper' ? `${v.toFixed(2)}×` : `${v.toFixed(2)} mm`;
+}
+function bindRange(id, fn) { $(id).addEventListener('input', () => { fn(+$(id).value); syncUI(); requestSA(90); }); }
+bindRange('D', v => { P.D = v; P.fr = Math.min(P.fr, v * 3 * 0.92); bgKey = ''; });
+bindRange('Q', v => P.Q = +logMap(v, 1, 5000).toPrecision(3));
+bindRange('hr', v => P.hr = v); bindRange('rr', v => P.rr = v); bindRange('Pv', v => P.Pv = v); bindRange('share', v => P.share = v);
+bindRange('fr', v => { P.fr = Math.min(v, P.D * 3 * 0.92); P.wallT = Math.min(P.wallT, P.fr / 6 - 0.05); });
+bindRange('wallT', v => { P.wallT = Math.min(v, P.fr / 6 - 0.05); });
+bindRange('len', v => P.len = v); bindRange('ecc', v => P.ecc = v);
+bindRange('endDia', v => { const idmm = Math.max(0.08, P.fr / 3 - 2 * P.wallT); P.endDia = v >= idmm - 0.005 ? null : v; });
+bindRange('inf', v => P.inf = v < 3 ? 0 : +logMap(v, 0.01, 300).toPrecision(3));
+bindRange('hct', v => P.hct = v);
+for (const [id, key] of [['wave', 'wave'], ['vtype', 'vtype'], ['mat', 'mat'], ['infusate', 'infusate'], ['rheo', 'rheo'], ['coag', 'coag'], ['ac', 'ac']]) {
+  $(id).addEventListener('change', () => { P[key] = $(id).value; if (id === 'vtype') bgKey = ''; syncUI(); requestSA(30); });
+}
+for (const id of ['modeOut', 'modeIn']) $(id).addEventListener('change', () => { if ($(id).checked) { P.mode = $(id).value; JP.length = 0; LP.length = 0; syncUI(); requestSA(0); toast(P.mode === 'aspirate' ? 'Blood now flows into the catheter' : 'Fluid now flows out of the catheter'); } });
+$('endHole').addEventListener('change', () => { P.endHole = $('endHole').checked; syncUI(); requestSA(30); });
+$('preset').addEventListener('change', () => { loadPreset($('preset').value); HIST.n = 0; HIST.head = 0; LV.t = 0; syncUI(); bgKey = ''; requestSA(0); });
+$('overlay').addEventListener('change', () => V.overlay = $('overlay').value);
+$('cells').addEventListener('change', () => { V.cells = $('cells').value; RB.n = 0; });
+$('slowmo').addEventListener('input', () => { V.slowmo = Math.pow(10, -2.7 * (1 - +$('slowmo').value / 1000)); syncUI(); });
+$('zoom').addEventListener('input', () => { const cx = V.viewX0 + view.W / 2 / view.kx; V.zoom = +$('zoom').value; view.kx = view.k * V.zoom; V.viewX0 = cx - view.W / 2 / view.kx; syncUI(); });
+$('labels').addEventListener('change', () => V.labels = $('labels').checked);
+$('clockRate').addEventListener('change', () => V.clockRate = +$('clockRate').value);
+$('xsField').addEventListener('change', () => V.xsField = $('xsField').value);
+for (const id of ['gN', 'gSpacing', 'gFirst', 'gDia', 'gTaper']) $(id).addEventListener('input', () => syncGen(id));
+$('gApply').addEventListener('click', () => {
+  const n = +$('gN').value, idmm = Math.max(0.08, P.fr / 3 - 2 * P.wallT);
+  P.holes = genHoles(n, +$('gSpacing').value, +$('gFirst').value, $('gPattern').value, Math.min(+$('gDia').value, idmm * 0.95), +$('gTaper').value);
+  V.selected = null; changed(); toast(`${n} side holes placed`);
+});
+$('hClear').addEventListener('click', () => { P.holes = []; V.selected = null; changed(); toast('Side holes removed'); });
+$('hEqualize').addEventListener('click', equalize);
+$('play').addEventListener('click', () => { V.playing = !V.playing; $('play').textContent = V.playing ? 'Pause' : 'Play'; $('play').setAttribute('aria-pressed', String(V.playing)); });
+$('resetView').addEventListener('click', () => { V.viewX0 = null; V.zoom = 1; syncUI(); });
+$('clotReset').addEventListener('click', () => { resetClot(); requestSA(0); toast('Fresh catheter: clot cleared'); });
+$('lyse').addEventListener('click', () => {
+  for (let k = 0; k < M; k++) { CL.cath[k] *= 0.5; CL.wall[k] *= 0.6; CL.down[k] *= 0.6; }
+  for (const h of P.holes) h.occ = (h.occ || 0) * 0.12; CL.end *= 0.12;
+  CL.cathB.set(CL.cath); CL.wallB.set(CL.wall); CL.version++; requestSA(0);
+  toast('Alteplase lock: hole and tip clot dissolved, sheath and mural clot reduced');
+});
+['hDia', 'hAng', 'hDist'].forEach(id => $(id).addEventListener('input', () => {
+  const h = P.holes.find(q => q.id === V.selected); if (!h) return;
+  if (id === 'hDia') h.dia = +$('hDia').value; if (id === 'hAng') h.ang = +$('hAng').value; if (id === 'hDist') h.dist = +$('hDist').value;
+  changed(true);
+}));
+$('hDel').addEventListener('click', () => { if (V.selected) deleteHole(V.selected); });
+$('hDup').addEventListener('click', () => { const h = P.holes.find(q => q.id === V.selected); if (!h) return; const n = Object.assign({}, h, { id: HID++, dist: +(h.dist + 2).toFixed(2), occ: 0 }); P.holes.push(n); V.selected = n.id; changed(); });
+
+function changed(light) { updateHoleTable(); requestSA(light ? 120 : 30); }
+function equalize() {
+  if (!SA || P.holes.length < 2 || P.inf <= 0) { toast('Equalizing needs two or more side holes and a running infusion'); return; }
+  const ri = SA.ri, idmm = ri * 2000;
+  for (let it = 0; it < 60; it++) {
+    const net = holeNetwork(P, ri, CL.end);
+    const qs = net.holes.map(x => x.q), mq = arrMean(qs);
+    if (mq <= 0) break;
+    let maxd = 0;
+    P.holes.forEach((h, j) => { const f = Math.pow(mq / Math.max(qs[j], mq * 1e-3), 0.3); const nd = clamp(h.dia * f, 0.05, idmm * 0.95); maxd = Math.max(maxd, Math.abs(nd - h.dia)); h.dia = +nd.toFixed(4); });
+    if (maxd < 1e-4) break;
+  }
+  changed(); toast('Hole sizes adjusted for equal flow');
+}
+
+/* ================= hole table ================= */
+function updateHoleTable() {
+  const tb = $('holeTable').tBodies[0]; tb.textContent = '';
+  const net = SA ? SA.net : null;
+  P.holes.forEach((h, j) => {
+    const tr = document.createElement('tr'); if (V.selected === h.id) tr.className = 'sel';
+    const q = net && net.holes[j] ? net.holes[j] : { q: 0, v: 0 };
+    const share = net && net.Qin > 0 ? q.q / net.Qin * 100 : 0;
+    for (const t of [`${j + 1}`, h.dist.toFixed(1), `${h.ang}°`, h.dia.toFixed(2), `${share.toFixed(1)}%`, q.v.toFixed(3), `${((h.occ || 0) * 100).toFixed(0)}%`]) { const td = document.createElement('td'); td.textContent = t; tr.appendChild(td); }
+    tr.addEventListener('click', () => { V.selected = h.id; updateHoleTable(); });
+    tb.appendChild(tr);
+  });
+  if (P.endHole) {
+    const tr = document.createElement('tr');
+    const e = net ? net.end : { q: 0, v: 0, r0: 0 };
+    const share = net && net.Qin > 0 ? e.q / net.Qin * 100 : 0;
+    for (const t of ['Tip', '0.0', 'axial', ((e.r0 || 0) * 2000).toFixed(2), `${share.toFixed(1)}%`, (e.v || 0).toFixed(3), `${(CL.end * 100).toFixed(0)}%`]) { const td = document.createElement('td'); td.textContent = t; tr.appendChild(td); }
+    tb.appendChild(tr);
+  }
+  const h = P.holes.find(q => q.id === V.selected);
+  $('holeEd').hidden = !h;
+  if (h) {
+    const j = P.holes.indexOf(h);
+    $('hTitle').textContent = `Hole ${j + 1} selected`;
+    $('hDia').value = h.dia; $('ohDia').textContent = `${h.dia.toFixed(2)} mm`;
+    $('hAng').value = h.ang; $('ohAng').textContent = `${h.ang}°`;
+    $('hDist').value = h.dist; $('ohDist').textContent = `${h.dist.toFixed(1)} mm`;
+  }
+}
+
+/* ================= metrics panel ================= */
+function fmt(v, s) {
+  if (v === null || v === undefined || !isFinite(v)) return '—';
+  s = s || 3; const a = Math.abs(v);
+  if (a === 0) return '0';
+  if (a >= 10000) return Math.round(v).toLocaleString('en-US');
+  if (a >= 100) return Math.round(v).toString();
+  return Number(v.toPrecision(s)).toString();
+}
+function fmtH(h) { if (h === null) return 'not within 30 days'; if (h < 48) return `${h.toFixed(h < 10 ? 1 : 0)} h`; return `${(h / 24).toFixed(1)} days`; }
+const pill = (st, txt) => `<span class="pill ${st}">${txt}</span>`;
+function metricCards(m) {
+  const net = m.net, cards = [];
+  const flowSt = m.flowRed < 0.25 ? 'ok' : m.flowRed < 0.5 ? 'warn' : 'crit';
+  cards.push(['Hemodynamics', [
+    { k: 'Blood flow past catheter', v: `${fmt(m.Qc * 6e7)}<small>mL/min</small>`, s: `${(m.flowRed * 100).toFixed(0)}% below the ${fmt(m.Q0 * 6e7)} mL/min without catheter`, st: flowSt },
+    { k: 'Catheter-to-vessel ratio', v: `${m.CVR.toFixed(2)}`, s: 'Guidelines: ≤ 0.45, ideally ≤ 0.33', st: m.CVR <= 0.33 ? 'ok' : m.CVR <= 0.45 ? 'warn' : 'crit' },
+    { k: 'Mean blood velocity', v: `${fmt(m.Um * 100)}<small>cm/s</small>`, s: `${fmt(m.Um0 * 100)} cm/s without catheter` },
+    { k: 'Reynolds · Womersley', v: `${fmt(m.Re)} · ${m.Wo.toFixed(1)}`, s: m.Re > 2000 ? 'Transitional flow' : 'Laminar flow' },
+    { k: 'Vessel wall shear rate', v: `${fmt(m.wallGmean)}<small>s⁻¹</small>`, s: `min ${fmt(m.wallGmin)} · ${fmt(m.wallG0)} without catheter`, st: m.wallGmin > 2 * GAMMA_C ? 'ok' : m.wallGmin > GAMMA_C ? 'warn' : 'crit' },
+    { k: 'Vessel wall shear stress', v: `${fmt(m.wallTauMean)}<small>Pa</small>`, s: `range ${fmt(m.wallTauMin)}–${fmt(m.wallTauMax)} Pa · ${fmt(m.wallTau0)} Pa healthy` },
+    { k: 'Catheter surface shear rate', v: `${fmt(m.cathGmean)}<small>s⁻¹</small>`, s: `min ${fmt(m.cathGmin)} s⁻¹`, st: m.cathGmin > 2 * GAMMA_C ? 'ok' : m.cathGmin > GAMMA_C ? 'warn' : 'crit' },
+    { k: 'Stasis area (γ̇ < 30 s⁻¹)', v: `${(m.stasis * 100).toFixed(0)}<small>%</small>`, s: `${(m.stasis0 * 100).toFixed(0)}% without catheter`, st: m.stasis - m.stasis0 < 0.1 ? 'ok' : m.stasis - m.stasis0 < 0.3 ? 'warn' : 'crit' },
+    { k: 'Peak shear rate', v: `${fmt(m.gMax)}<small>s⁻¹</small>`, s: m.gMax > SIPA ? 'Above 5000 s⁻¹: vWF unfolds, platelets aggregate' : 'Below the vWF unfolding threshold', st: m.gMax > SIPA ? 'crit' : 'ok' }
+  ]]);
+  const hubmm = m.hubP / MMHG, gravity = 74;
+  const inf = [];
+  if (net.Qin > 0 && m.asp) {
+    const suct = m.hubP / MMHG;
+    inf.push({ k: 'Hub pressure (suction)', v: net.blocked ? 'Occluded' : `${fmt(suct)}<small>mmHg</small>`, s: net.blocked ? 'No open inlet. Blood cannot be drawn.' : `${fmt(net.dpHub / MMHG)} mmHg below vessel pressure · dialysis alarms below −250`, st: net.blocked ? 'crit' : suct < -250 ? 'crit' : suct < -150 ? 'warn' : 'ok' });
+    inf.push({ k: 'Withdrawal share of vessel flow', v: `${fmt(m.drawShare * 100)}<small>%</small>`, s: m.drawShare > 1 ? 'More than the vessel carries: recirculation or vein collapse' : `${fmt(m.Qdown * 6e7)} mL/min continues past the tip`, st: m.drawShare > 0.8 ? 'crit' : m.drawShare > 0.5 ? 'warn' : 'ok' });
+    const jn = m.jetMaxIdx === -2 ? 'tip' : m.jetMaxIdx >= 0 ? `hole ${m.jetMaxIdx + 1}` : '—';
+    inf.push({ k: 'Fastest inflow', v: `${fmt(m.jetVmax)}<small>m/s</small>`, s: `at ${jn} · lumen ${fmt(net.lumenV * 100)} cm/s, Re ${fmt(net.lumenRe)}` });
+    inf.push({ k: 'Holes sealed by wall suction', v: `${m.sealed}`, s: m.sealed ? 'Hole within 0.6 diameters of the wall' : 'No hole is close enough to the wall to seal', st: m.sealed ? 'crit' : 'ok' });
+    const sheathBlock = m.extra ? Math.max(m.extra.end, ...m.extra.holes.map((x, j) => m.jets[j] && m.jets[j].sealed ? 0 : x)) : 0;
+    inf.push({ k: 'Fibrin flap over inlets', v: `${fmt(sheathBlock * 100)}<small>% blocked</small>`, s: 'A sheath lets infusion out but blocks withdrawal', st: sheathBlock > 0.5 ? 'crit' : sheathBlock > 0.15 ? 'warn' : 'ok' });
+    inf.push({ k: 'Side-hole flow spread', v: P.holes.length > 1 ? `${(m.holeCV * 100).toFixed(0)}<small>% CV</small>` : '—', s: `${(m.endShare * 100).toFixed(0)}% enters through the tip`, st: P.holes.length > 1 ? (m.holeCV < 0.25 ? 'ok' : m.holeCV < 0.6 ? 'warn' : 'crit') : undefined });
+  } else if (net.Qin > 0) {
+    inf.push({ k: 'Hub pressure needed', v: net.blocked ? 'Occluded' : `${fmt(hubmm)}<small>mmHg</small>`, s: net.blocked ? 'No open outlet. Infusion cannot run.' : `${fmt(m.hubP / PSI)} psi · ${hubmm > 2068e3 / MMHG ? 'exceeds 300 psi power-injection limit' : hubmm > gravity ? 'needs a pump or pressure bag' : 'a gravity drip at 1 m is enough'}`, st: net.blocked ? 'crit' : m.hubP > 300 * PSI ? 'crit' : hubmm > gravity ? 'warn' : 'ok' });
+    inf.push({ k: 'Lumen flow', v: `${fmt(net.lumenV * 100)}<small>cm/s</small>`, s: `Re ${fmt(net.lumenRe)} · ${net.lumenRe > 2300 ? 'turbulent' : 'laminar'} · ID ${(m.ri * 2000).toFixed(2)} mm` });
+    const jn = m.jetMaxIdx === -2 ? 'tip' : m.jetMaxIdx >= 0 ? `hole ${m.jetMaxIdx + 1}` : '—';
+    inf.push({ k: 'Fastest exit jet', v: `${fmt(m.jetVmax)}<small>m/s</small>`, s: `at ${jn}`, st: m.jetVmax > 5 ? 'warn' : 'ok' });
+    inf.push({ k: 'Jet impact on vessel wall', v: `${fmt(m.tauImpMax)}<small>Pa</small>`, s: 'Endothelial damage near 38 Pa', st: m.tauImpMax > FRY ? 'crit' : m.tauImpMax > 15 ? 'warn' : 'ok' });
+    inf.push({ k: 'Side-hole flow spread', v: P.holes.length > 1 ? `${(m.holeCV * 100).toFixed(0)}<small>% CV</small>` : '—', s: `${(m.endShare * 100).toFixed(0)}% leaves through the tip`, st: P.holes.length > 1 ? (m.holeCV < 0.25 ? 'ok' : m.holeCV < 0.6 ? 'warn' : 'crit') : undefined });
+    inf.push({ k: 'Infusate after full mixing', v: `${fmt(m.dilution * 100)}<small>%</small>`, s: `${fmt(net.Qin * 6e7)} mL/min into ${fmt(m.Qc * 6e7)} mL/min of blood` });
+  } else {
+    inf.push({ k: 'Infusion', v: 'Off', s: 'Catheter locked. Holes are not flushed, so they clot faster.', st: 'warn', wide: true });
+  }
+  cards.push(['Catheter flow', inf]);
+  const r = lastRates, p = CL.proj || {};
+  const fibNow = arrMean(CL.cath), murNow = Math.max(arrMax(CL.wall), arrMax(CL.down));
+  const fibRate = r ? arrMean(r.dc) : m.fibrinRate0, murRate = r ? Math.max(arrMax(r.dw), arrMax(r.dd)) : m.muralRate0;
+  const holeRate = r && r.dh.length ? arrMax(r.dh) : 0;
+  const riskSt = m.risk < 20 ? 'ok' : m.risk < 50 ? 'warn' : 'crit';
+  const vb = m.virchow;
+  const vbars = `<div class="vbars"><span>Stasis</span><div class="vbar"><span style="width:${(vb.S * 100).toFixed(0)}%"></span></div><span>${(vb.S * 100).toFixed(0)}</span><span>Endothelial injury</span><div class="vbar"><span style="width:${(vb.E * 100).toFixed(0)}%"></span></div><span>${(vb.E * 100).toFixed(0)}</span><span>Hypercoagulability</span><div class="vbar"><span style="width:${(vb.H * 100).toFixed(0)}%"></span></div><span>${(vb.H * 100).toFixed(0)}</span></div>`;
+  const occlSt = p.occl !== null && p.occl !== undefined && p.occl < 72 ? 'crit' : p.occl !== null && p.occl !== undefined && p.occl < 168 ? 'warn' : 'ok';
+  cards.push(['Thrombosis & blood damage', [
+    { k: 'Thrombosis risk index', v: `${m.risk.toFixed(0)}<small>/ 100</small> ${pill(riskSt, riskSt === 'ok' ? 'low' : riskSt === 'warn' ? 'moderate' : 'high')}`, s: 'Relative score from Virchow\'s triad', st: riskSt, wide: true, extra: vbars },
+    { k: 'Fibrin sheath growth', v: `${fmt(fibRate * 1e6)}<small>µm/h</small>`, s: `now ${fmt(fibNow * 1e6)} µm thick${fibNow > 100e-6 ? ' · may block aspiration' : ''}`, st: fibRate * 1e6 > 2 ? 'warn' : 'ok' },
+    { k: 'Mural thrombus growth', v: `${fmt(murRate * 1e6)}<small>µm/h</small>`, s: `largest now ${fmt(murNow * 1e6)} µm · ${(Math.max(muralFraction(CL.wall, m.R), muralFraction(CL.down, m.R)) * 100).toFixed(0)}% of lumen`, st: murRate * 1e6 > 1 ? 'crit' : murRate * 1e6 > 0.2 ? 'warn' : 'ok' },
+    { k: 'Hole occlusion rate', v: P.holes.length ? `${fmt(Math.max(0, holeRate) * 100)}<small>%/h</small>` : '—', s: `worst hole ${(P.holes.length ? Math.max(...P.holes.map(h => h.occ || 0)) * 100 : 0).toFixed(0)}% closed · tip ${(CL.end * 100).toFixed(0)}%`, st: holeRate > 0.01 ? 'crit' : holeRate > 0.002 ? 'warn' : 'ok' },
+    { k: 'Hemolysis rate', v: `${fmt(m.hemo)}<small>mg/dL/h</small>`, s: 'Plasma free Hb rise from jet shear, no clearance', st: m.hemo > 5 ? 'crit' : m.hemo > 1 ? 'warn' : 'ok' },
+    { k: 'Platelet activation', v: `${fmt(m.plt)}<small>%/h</small>`, s: 'Share of circulating platelets activated per hour', st: m.plt > 1 ? 'crit' : m.plt > 0.1 ? 'warn' : 'ok' },
+    { k: 'Projected with current flow', v: '', s: '', st: occlSt, wide: true, extra: `<div class="proj">Fibrin sheath reaches 100 µm: <b>${fmtH(p.sheath100 ?? null)}</b><br>First side hole occluded: <b>${P.holes.length ? fmtH(p.firstHole ?? null) : 'no side holes'}</b><br>Catheter fully occluded: <b>${fmtH(p.occl ?? null)}</b><br>Thrombus fills half the vessel: <b>${fmtH(p.dvt ?? null)}</b></div>` }
+  ]]);
+  return cards;
+}
+function updateMetrics() {
+  if (!SA) return;
+  const root = $('metrics'); root.textContent = '';
+  for (const [title, items] of metricCards(SA)) {
+    const sec = document.createElement('section'); sec.className = 'panel mgroup';
+    const h2 = document.createElement('h2'); h2.textContent = title; sec.appendChild(h2);
+    const grid = document.createElement('div'); grid.className = 'mgrid';
+    for (const it of items) {
+      const c = document.createElement('div'); c.className = 'card' + (it.st ? ' ' + it.st : '') + (it.wide ? ' wide' : '');
+      c.innerHTML = `<div class="k">${it.k}</div>${it.v ? `<div class="v">${it.v}</div>` : ''}${it.s ? `<div class="s">${it.s}</div>` : ''}${it.extra || ''}`;
+      grid.appendChild(c);
+    }
+    sec.appendChild(grid); root.appendChild(sec);
+  }
+}
+function updateReadouts() {
+  $('tPhys').textContent = `${LV.t.toFixed(2)} s`;
+  $('tClin').textContent = CL.hours < 48 ? `${CL.hours.toFixed(1)} h` : `${(CL.hours / 24).toFixed(1)} d`;
+  if (SA) $('viewInfo').textContent = `Side view through the vessel axis. Catheter ${(SA.a0 * 2000).toFixed(2)} mm in a ${(SA.R * 2000).toFixed(1)} mm ${P.vtype}. Cells are drawn enlarged. Scroll to zoom, drag to pan, hover for local values.`;
+}
+
+/* ================= charts ================= */
+const LIVE_METRICS = [
+  { id: 'flow', label: 'Blood flow', unit: 'mL/min', series: [['with catheter', () => LV.inst.Q * 6e7, '--s1'], ['no catheter', () => LV.inst.Q0 * 6e7, '--ink-3']] },
+  { id: 'grad', label: 'Pressure gradient', unit: 'mmHg/cm', series: [['', () => LV.inst.G / MMHG / 100, '--s3']] },
+  { id: 'wallshear', label: 'Vessel wall shear rate', unit: 's⁻¹', series: [['top wall', () => LV.inst.wTop, '--s1'], ['bottom wall', () => LV.inst.wBot, '--s4']] },
+  { id: 'wss', label: 'Vessel wall shear stress', unit: 'Pa', series: [['top wall', () => LV.inst.tauTop, '--s1'], ['bottom wall', () => LV.inst.tauBot, '--s4']] },
+  { id: 'cathshear', label: 'Catheter surface shear rate', unit: 's⁻¹', series: [['top', () => LV.inst.cTop, '--s3'], ['bottom', () => LV.inst.cBot, '--s2']] },
+  { id: 'peakshear', label: 'Peak shear rate', unit: 's⁻¹', series: [['', () => LV.inst.gMax, '--s2']] },
+  { id: 're', label: 'Reynolds number', unit: '', series: [['', () => LV.inst.Re, '--s3']] },
+  { id: 'sheath', label: 'Fibrin sheath thickness', unit: 'µm', series: [['mean', () => arrMean(CL.cath) * 1e6, '--s4']] },
+  { id: 'mural', label: 'Mural thrombus (largest)', unit: 'µm', series: [['', () => Math.max(arrMax(CL.wall), arrMax(CL.down)) * 1e6, '--s2']] },
+  { id: 'occl', label: 'Worst hole occlusion', unit: '%', series: [['', () => Math.max(CL.end, ...P.holes.map(h => h.occ || 0)) * 100, '--s2']] },
+  { id: 'risk', label: 'Thrombosis risk index', unit: '/100', series: [['', () => SA.risk, '--s2']] },
+  { id: 'hub', label: 'Hub pressure', unit: 'mmHg', series: [['', () => isFinite(SA.hubP) ? SA.hubP / MMHG : NaN, '--s3']] },
+  { id: 'jet', label: 'Fastest hole velocity', unit: 'm/s', series: [['', () => SA.jetVmax, '--s3']] },
+  { id: 'hemo', label: 'Hemolysis rate', unit: 'mg/dL/h', series: [['', () => SA.hemo, '--s2']] },
+  { id: 'fibrate', label: 'Fibrin sheath growth', unit: 'µm/h', series: [['', () => lastRates ? arrMean(lastRates.dc) * 1e6 : 0, '--s4']] },
+  { id: 'murrate', label: 'Mural thrombus growth', unit: 'µm/h', series: [['', () => lastRates ? Math.max(arrMax(lastRates.dw), arrMax(lastRates.dd)) * 1e6 : 0, '--s2']] },
+  { id: 'stasis', label: 'Stasis area', unit: '%', series: [['', () => SA.stasis * 100, '--s4']] }
+];
+const HIST_N = 900;
+const HIST = { n: 0, head: 0, t: new Float64Array(HIST_N), c: new Float64Array(HIST_N), v: {} };
+for (const mt of LIVE_METRICS) mt.series.forEach((s, i) => HIST.v[mt.id + i] = new Float64Array(HIST_N));
+function sampleHistory() {
+  if (!SA || !LV.inst || LV.inst.Q === undefined) return;
+  const i = HIST.head;
+  HIST.t[i] = LV.t; HIST.c[i] = CL.hours;
+  for (const mt of LIVE_METRICS) mt.series.forEach((s, j) => { let v; try { v = s[1](); } catch (e) { v = NaN; } HIST.v[mt.id + j][i] = v; });
+  HIST.head = (i + 1) % HIST_N; HIST.n = Math.min(HIST.n + 1, HIST_N);
+}
+function histIter(fn) { for (let k = 0; k < HIST.n; k++) { const i = (HIST.head - HIST.n + k + HIST_N) % HIST_N; fn(i, k); } }
+
+function buildChips() {
+  const box = $('liveChips'); box.textContent = '';
+  for (const mt of LIVE_METRICS) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = mt.label;
+    b.setAttribute('aria-pressed', String(V.liveSel.includes(mt.id)));
+    b.addEventListener('click', () => {
+      const i = V.liveSel.indexOf(mt.id);
+      if (i >= 0) { if (V.liveSel.length > 1) V.liveSel.splice(i, 1); }
+      else { V.liveSel.push(mt.id); if (V.liveSel.length > 4) V.liveSel.shift(); }
+      buildChips();
+    });
+    box.appendChild(b);
+  }
+}
+const SWEEP_X = {
+  fr: { label: 'Catheter size (Fr)', range: () => [1.5, Math.max(2, Math.min(24, P.D * 3 * 0.9))], get: () => P.fr, set: (p, v) => { p.fr = v; p.wallT = Math.min(p.wallT, v / 6 - 0.05); } },
+  D: { label: 'Vessel diameter (mm)', range: () => [Math.max(1.5, P.fr / 3 / 0.9), Math.max(P.D * 3, P.fr / 3 / 0.9 + 2)], get: () => P.D, set: (p, v) => p.D = v },
+  inf: { label: 'Catheter flow rate (mL/min)', range: () => [0, Math.max(5, P.inf * 3)], get: () => P.inf, set: (p, v) => p.inf = v },
+  Q: { label: 'Blood flow without catheter (mL/min)', range: () => [Math.max(1, P.Q * 0.1), P.Q * 3], get: () => P.Q, set: (p, v) => p.Q = v },
+  hole: { label: 'Side-hole diameter, all holes (mm)', range: () => [0.1, Math.max(0.2, Math.min(2.5, (P.fr / 3 - 2 * P.wallT) * 0.95))], get: () => P.holes.length ? arrMean(P.holes.map(h => h.dia)) : 0.5, set: (p, v) => p.holes.forEach(h => h.dia = v) },
+  ecc: { label: 'Catheter position (−1 top … +1 bottom)', range: () => [-1, 1], get: () => P.ecc, set: (p, v) => p.ecc = v },
+  hct: { label: 'Hematocrit (%)', range: () => [20, 65], get: () => P.hct, set: (p, v) => p.hct = v },
+  share: { label: 'Resistance share of segment', range: () => [0, 1], get: () => P.share, set: (p, v) => p.share = v },
+  wallT: { label: 'Catheter wall thickness (mm)', range: () => [0.05, Math.max(0.08, P.fr / 6 - 0.06)], get: () => P.wallT, set: (p, v) => p.wallT = v }
+};
+const SWEEP_Y = {
+  none: { label: '—' },
+  flowRed: { label: 'Flow reduction (%)', f: m => m.flowRed * 100 },
+  Qc: { label: 'Blood flow (mL/min)', f: m => m.Qc * 6e7 },
+  wallGmin: { label: 'Min wall shear rate (s⁻¹)', f: m => m.wallGmin },
+  wallGmean: { label: 'Mean wall shear rate (s⁻¹)', f: m => m.wallGmean },
+  wallTau: { label: 'Mean wall shear stress (Pa)', f: m => m.wallTauMean },
+  cathG: { label: 'Catheter surface shear rate (s⁻¹)', f: m => m.cathGmean },
+  stasis: { label: 'Stasis area (%)', f: m => m.stasis * 100 },
+  gMax: { label: 'Peak shear rate (s⁻¹)', f: m => m.gMax },
+  hub: { label: 'Hub pressure (mmHg)', f: m => isFinite(m.hubP) ? m.hubP / MMHG : NaN },
+  draw: { label: 'Withdrawal share of vessel flow (%)', f: m => m.drawShare * 100 },
+  jet: { label: 'Fastest hole velocity (m/s)', f: m => m.jetVmax },
+  imp: { label: 'Jet wall impact (Pa)', f: m => m.tauImpMax },
+  cv: { label: 'Side-hole flow CV (%)', f: m => m.holeCV * 100 },
+  hemo: { label: 'Hemolysis rate (mg/dL/h)', f: m => m.hemo },
+  fib: { label: 'Fibrin growth, new catheter (µm/h)', f: m => m.fibrinRate0 * 1e6 },
+  mur: { label: 'Mural growth, new catheter (µm/h)', f: m => m.muralRate0 * 1e6 },
+  risk: { label: 'Thrombosis risk index', f: m => m.risk },
+  re: { label: 'Reynolds number', f: m => m.Re }
+};
+const HOLE_METRICS = {
+  share: { label: 'Share of infusion (%)', f: (j) => SA.net.Qin > 0 ? (j < 0 ? SA.net.end.q : SA.net.holes[j].q) / SA.net.Qin * 100 : 0 },
+  q: { label: 'Flow (mL/min)', f: j => (j < 0 ? SA.net.end.q : SA.net.holes[j].q) * 6e7 },
+  v: { label: 'Velocity through hole (m/s)', f: j => j < 0 ? SA.net.end.v : SA.net.holes[j].v },
+  re: { label: 'Hole Reynolds number', f: j => (j < 0 ? SA.endJet : SA.jets[j]) ? (j < 0 ? SA.endJet : SA.jets[j]).Re : 0 },
+  imp: { label: 'Wall impact shear (Pa)', f: j => j < 0 ? 0 : SA.jets[j].tauImp },
+  occ: { label: 'Occlusion (%)', f: j => (j < 0 ? CL.end : (P.holes[j].occ || 0)) * 100 },
+  occr: { label: 'Occlusion rate (%/h)', f: j => lastRates ? (j < 0 ? lastRates.de : lastRates.dh[j]) * 100 : 0 },
+  p: { label: 'Pressure difference across hole (mmHg)', f: j => j < 0 ? (SA.net.pTip || 0) / MMHG : SA.net.holes[j].p / MMHG }
+};
+fillSelect($('sweepX'), SWEEP_X, 'label'); fillSelect($('sweepY1'), Object.fromEntries(Object.entries(SWEEP_Y).filter(([k]) => k !== 'none')), 'label'); fillSelect($('sweepY2'), SWEEP_Y, 'label');
+fillSelect($('holeMetric'), HOLE_METRICS, 'label');
+$('sweepX').value = V.sweepX; $('sweepY1').value = V.sweepY1; $('sweepY2').value = V.sweepY2;
+$('sweepX').addEventListener('change', () => { V.sweepX = $('sweepX').value; requestSweep(true); });
+$('sweepY1').addEventListener('change', () => { V.sweepY1 = $('sweepY1').value; drawChart(); });
+$('sweepY2').addEventListener('change', () => { V.sweepY2 = $('sweepY2').value; drawChart(); });
+$('holeMetric').addEventListener('change', () => { V.holeMetric = $('holeMetric').value; drawChart(); });
+$('profileQ').addEventListener('change', () => { V.profileQ = $('profileQ').value; drawChart(); });
+$('xAxis').addEventListener('change', () => { V.xAxis = $('xAxis').value; drawChart(); });
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  V.tab = b.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  $('ctlLive').hidden = V.tab !== 'live'; $('ctlSweep').hidden = V.tab !== 'sweep'; $('ctlHoles').hidden = V.tab !== 'holes'; $('ctlProfile').hidden = V.tab !== 'profile';
+  if (V.tab === 'sweep') requestSweep(); drawChart();
+}));
+
+/* sweep runner */
+const SW = { pts: [], run: 0, running: false, x: '', done: false };
+let swTimer = null;
+function requestSweep(force) {
+  if (V.tab !== 'sweep' && !force) { SW.done = false; return; }
+  clearTimeout(swTimer); swTimer = setTimeout(runSweep, 250);
+}
+function runSweep() {
+  const runId = ++SW.run, def = SWEEP_X[V.sweepX];
+  const [lo, hi] = def.range(), n = 22, pts = [];
+  SW.pts = pts; SW.running = true; SW.x = V.sweepX; SW.lo = lo; SW.hi = hi;
+  let i = 0;
+  const step = () => {
+    if (runId !== SW.run) return;
+    const t0 = performance.now();
+    while (i < n && performance.now() - t0 < 30) {
+      const xv = lo + (hi - lo) * i / (n - 1);
+      const pp = JSON.parse(JSON.stringify(P));
+      def.set(pp, xv);
+      let m = null;
+      if (pp.fr / 3 < pp.D * 0.93 && pp.wallT < pp.fr / 6) { try { m = evaluate(pp, { N: N_SW, cache: swCache, maxIt: 200, tol: 3e-4 }); } catch (e) { m = null; } }
+      const row = { x: xv };
+      for (const k in SWEEP_Y) if (SWEEP_Y[k].f) row[k] = m ? SWEEP_Y[k].f(m) : NaN;
+      pts.push(row); i++;
+    }
+    $('sweepStatus').textContent = i < n ? `Computing ${i}/${n}…` : `${n} steady solutions · new catheter, mean flow`;
+    drawChart();
+    if (i < n) setTimeout(step, 0); else { SW.running = false; SW.done = true; }
+  };
+  step();
+}
+
+function chartColors() {
+  return { ink: css('--ink'), ink2: css('--ink-2'), ink3: css('--ink-3'), line: css('--line'), panel: css('--panel'), s: { '--s1': css('--s1'), '--s2': css('--s2'), '--s3': css('--s3'), '--s4': css('--s4'), '--ink-3': css('--ink-3') }, accent: css('--accent'), crit: css('--crit') };
+}
+function niceTicks(lo, hi, n) {
+  const span = hi - lo || 1, step0 = span / Math.max(n, 1), mag = Math.pow(10, Math.floor(Math.log10(step0))), r = step0 / mag;
+  const step = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step) out.push(+v.toPrecision(12));
+  out.step = step;
+  return out;
+}
+function padRange(lo, hi, zeroOK) {
+  if (!isFinite(lo)) return [0, 1];
+  if (zeroOK && lo > 0 && lo < hi * 0.5) lo = 0;
+  const minSpan = Math.max(Math.abs(hi), Math.abs(lo)) * 0.04 || 1;
+  if (hi - lo < minSpan) { const c = (hi + lo) / 2; lo = c - minSpan / 2; hi = c + minSpan / 2; if (zeroOK && lo < 0 && c >= 0 && c - minSpan / 2 > -minSpan) lo = Math.max(lo, 0); }
+  const pad = (hi - lo) * 0.1;
+  return [lo === 0 ? 0 : lo - pad, hi + pad];
+}
+function tickFmt(v, step) {
+  const a = Math.abs(v);
+  if (a >= 1e4 && (!step || step >= 1000)) return (v / 1000).toFixed(0) + 'k';
+  if (step) { const dec = clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 5); return v.toFixed(dec); }
+  if (a >= 100) return v.toFixed(0); if (a >= 10) return v.toFixed(1); if (a >= 1) return v.toFixed(2); if (a === 0) return '0'; return v.toPrecision(2);
+}
+let chartHover = null;
+cvChart.addEventListener('pointermove', ev => { const [x, y] = evPos(ev, cvChart); chartHover = { x, y }; drawChart(); });
+cvChart.addEventListener('pointerleave', () => { chartHover = null; drawChart(); });
+
+function drawChart() {
+  if (!SA) return;
+  const f = fit(cvChart), g = cctx; g.setTransform(f.dpr, 0, 0, f.dpr, 0, 0);
+  const W = f.W, H = f.H, C = chartColors();
+  g.clearRect(0, 0, W, H);
+  g.font = '500 10.5px "IBM Plex Mono", monospace';
+  if (V.tab === 'live') drawLive(g, W, H, C);
+  else if (V.tab === 'sweep') drawSweep(g, W, H, C);
+  else if (V.tab === 'holes') drawHoleBars(g, W, H, C);
+  else drawProfile(g, W, H, C);
+}
+function axisFrame(g, L, T, Wp, Hp, C, yt, ylo, yhi, right) {
+  g.strokeStyle = C.line; g.lineWidth = 1;
+  g.fillStyle = C.ink3; g.textAlign = right ? 'left' : 'right'; g.textBaseline = 'middle';
+  for (const v of yt) { const y = T + Hp * (1 - (v - ylo) / (yhi - ylo || 1)); if (!right) { g.beginPath(); g.moveTo(L, y); g.lineTo(L + Wp, y); g.stroke(); } g.fillText(tickFmt(v, yt.step), right ? L + Wp + 6 : L - 6, y); }
+  g.textBaseline = 'alphabetic';
+}
+function drawLive(g, W, H, C) {
+  const sel = V.liveSel.map(id => LIVE_METRICS.find(m => m.id === id)).filter(Boolean);
+  const L = 58, Rm = 16, T = 8, B = 26, gap = 10;
+  const laneH = (H - T - B - gap * (sel.length - 1)) / sel.length;
+  let xs = [], xlo = 0, xhi = 1;
+  const useC = V.xAxis === 'clin';
+  histIter((i) => xs.push(useC ? HIST.c[i] : HIST.t[i]));
+  if (xs.length) { xhi = xs[xs.length - 1]; xlo = useC ? Math.min(xs[0], xhi - 1e-6) : Math.max(xs[0], xhi - 30); if (xhi - xlo < 1e-6) xlo = xhi - 1; }
+  const Wp = W - L - Rm;
+  const xp = v => L + Wp * (v - xlo) / (xhi - xlo);
+  let hoverIdx = -1;
+  if (chartHover && xs.length) { let bd = 1e9; histIter((i, k) => { const x = xp(xs[k]); const d = Math.abs(x - chartHover.x); if (d < bd && xs[k] >= xlo) { bd = d; hoverIdx = k; } }); }
+  sel.forEach((mt, li) => {
+    const top = T + li * (laneH + gap);
+    let lo = Infinity, hi = -Infinity;
+    histIter((i, k) => { if (xs[k] < xlo) return; mt.series.forEach((s, j) => { const v = HIST.v[mt.id + j][i]; if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
+    [lo, hi] = padRange(lo, hi, true);
+    const yt = niceTicks(lo, hi, Math.max(2, Math.floor(laneH / 28)));
+    axisFrame(g, L, top + 14, Wp, laneH - 14, C, yt, lo, hi);
+    const yp = v => top + 14 + (laneH - 14) * (1 - (v - lo) / (hi - lo || 1));
+    g.fillStyle = C.ink; g.textAlign = 'left'; g.font = '600 11px "Public Sans", sans-serif';
+    g.fillText(`${mt.label}${mt.unit ? ' (' + mt.unit + ')' : ''}`, L, top + 9);
+    g.font = '500 10.5px "IBM Plex Mono", monospace';
+    let legendX = L + g.measureText(mt.label).width + 120;
+    mt.series.forEach((s, j) => {
+      const col = C.s[s[2]] || C.accent, arr = HIST.v[mt.id + j];
+      g.beginPath(); let started = false, lastX = 0, lastY = 0, firstX = 0;
+      histIter((i, k) => { if (xs[k] < xlo) return; const v = arr[i]; if (!isFinite(v)) return; const x = xp(xs[k]), y = yp(v); if (!started) { g.moveTo(x, y); started = true; firstX = x; } else g.lineTo(x, y); lastX = x; lastY = y; });
+      if (started && j === 0) { g.save(); g.lineTo(lastX, yp(Math.max(lo, 0))); g.lineTo(firstX, yp(Math.max(lo, 0))); g.closePath(); g.globalAlpha = 0.1; g.fillStyle = col; g.fill(); g.restore(); g.beginPath(); started = false; histIter((i, k) => { if (xs[k] < xlo) return; const v = arr[i]; if (!isFinite(v)) return; const x = xp(xs[k]), y = yp(v); if (!started) { g.moveTo(x, y); started = true; } else g.lineTo(x, y); }); }
+      g.strokeStyle = col; g.lineWidth = j === 0 ? 1.8 : 1.3; g.setLineDash(s[2] === '--ink-3' ? [4, 3] : []); g.stroke(); g.setLineDash([]);
+      if (started) { g.fillStyle = col; g.beginPath(); g.arc(lastX, lastY, 3, 0, TAU); g.fill(); }
+      const cur = HIST.n ? arr[(HIST.head - 1 + HIST_N) % HIST_N] : NaN;
+      if (mt.series.length > 1 || true) { g.fillStyle = col; g.textAlign = 'right'; g.fillText(`${s[0] ? s[0] + ' ' : ''}${fmt(cur)}`, W - Rm - (mt.series.length - 1 - j) * 150, top + 9); }
+    });
+    if (hoverIdx >= 0) {
+      const x = xp(xs[hoverIdx]);
+      g.strokeStyle = C.ink3; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(x, top + 14); g.lineTo(x, top + laneH); g.stroke(); g.setLineDash([]);
+      const i = (HIST.head - HIST.n + hoverIdx + HIST_N) % HIST_N;
+      mt.series.forEach((s, j) => { const v = HIST.v[mt.id + j][i]; if (!isFinite(v)) return; g.fillStyle = C.s[s[2]] || C.accent; g.beginPath(); g.arc(x, yp(v), 3.5, 0, TAU); g.fill(); g.fillStyle = C.ink; g.textAlign = x > W - 140 ? 'right' : 'left'; g.fillText(fmt(v), x + (x > W - 140 ? -7 : 7), yp(v) - 6); });
+    }
+  });
+  g.fillStyle = C.ink3; g.textAlign = 'center';
+  { const xt = niceTicks(xlo, xhi, 6); for (const v of xt) { const x = xp(v); if (x < L - 1 || x > W - Rm - 90) continue; g.fillText(tickFmt(v, xt.step), x, H - 10); } }
+  g.textAlign = 'right'; g.fillText(useC ? 'clinical time (h)' : 'flow time (s)', W - Rm, H - 10 + 0);
+}
+function drawSweep(g, W, H, C) {
+  const def = SWEEP_X[SW.x || V.sweepX], pts = SW.pts, y1 = SWEEP_Y[V.sweepY1], y2 = V.sweepY2 !== 'none' ? SWEEP_Y[V.sweepY2] : null;
+  const L = 60, Rm = y2 ? 60 : 16, T = 24, B = 36, Wp = W - L - Rm, Hp = H - T - B;
+  const xlo = SW.lo ?? 0, xhi = SW.hi ?? 1;
+  const xp = v => L + Wp * (v - xlo) / (xhi - xlo || 1);
+  const range = key => { let lo = Infinity, hi = -Infinity; for (const p of pts) { const v = p[key]; if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } } return padRange(lo, hi, true); };
+  const [a1, b1] = range(V.sweepY1), yt1 = niceTicks(a1, b1, 5);
+  axisFrame(g, L, T, Wp, Hp, C, yt1, a1, b1);
+  const yp1 = v => T + Hp * (1 - (v - a1) / (b1 - a1 || 1));
+  let yp2 = null, a2, b2;
+  if (y2) { [a2, b2] = range(V.sweepY2); axisFrame(g, L, T, Wp, Hp, C, niceTicks(a2, b2, 5), a2, b2, true); yp2 = v => T + Hp * (1 - (v - a2) / (b2 - a2 || 1)); }
+  const plot = (key, yp, col, fill) => {
+    g.beginPath(); let st = false, fx = 0, lx = 0;
+    for (const p of pts) { const v = p[key]; if (!isFinite(v)) { continue; } const x = xp(p.x), y = yp(v); if (!st) { g.moveTo(x, y); st = true; fx = x; } else g.lineTo(x, y); lx = x; }
+    if (!st) return;
+    if (fill) { g.save(); g.lineTo(lx, T + Hp); g.lineTo(fx, T + Hp); g.closePath(); g.globalAlpha = 0.1; g.fillStyle = col; g.fill(); g.restore(); g.beginPath(); st = false; for (const p of pts) { const v = p[key]; if (!isFinite(v)) continue; const x = xp(p.x), y = yp(v); if (!st) { g.moveTo(x, y); st = true; } else g.lineTo(x, y); } }
+    g.strokeStyle = col; g.lineWidth = 2; g.stroke();
+    for (const p of pts) { const v = p[key]; if (!isFinite(v)) continue; g.fillStyle = col; g.beginPath(); g.arc(xp(p.x), yp(v), 2.2, 0, TAU); g.fill(); }
+  };
+  plot(V.sweepY1, yp1, C.s['--s1'], true);
+  if (y2) plot(V.sweepY2, yp2, C.s['--s2'], false);
+  const cx = xp(def.get());
+  if (cx >= L && cx <= L + Wp) { g.strokeStyle = C.ink2; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(cx, T); g.lineTo(cx, T + Hp); g.stroke(); g.setLineDash([]); g.fillStyle = C.ink2; g.textAlign = cx > L + Wp - 80 ? 'right' : 'left'; g.fillText('current setting', cx + (cx > L + Wp - 80 ? -5 : 5), T + Hp - 6); }
+  g.fillStyle = C.ink3; g.textAlign = 'center';
+  { const xt = niceTicks(xlo, xhi, 7); for (const v of xt) g.fillText(tickFmt(v, xt.step), xp(v), T + Hp + 15); }
+  g.fillStyle = C.ink; g.font = '600 11px "Public Sans", sans-serif'; g.fillText(def.label, L + Wp / 2, H - 6);
+  g.textAlign = 'left'; g.fillStyle = C.s['--s1']; g.fillText(y1.label, L, 12);
+  if (y2) { g.textAlign = 'right'; g.fillStyle = C.s['--s2']; g.fillText(y2.label, L + Wp, 12); }
+  g.font = '500 10.5px "IBM Plex Mono", monospace';
+  if (chartHover && pts.length) {
+    let best = null, bd = 1e9; for (const p of pts) { const d = Math.abs(xp(p.x) - chartHover.x); if (d < bd) { bd = d; best = p; } }
+    if (best) {
+      const x = xp(best.x); g.strokeStyle = C.ink3; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + Hp); g.stroke(); g.setLineDash([]);
+      const txt = [`${def.label.split(' (')[0]} ${fmt(best.x)}`, `${y1.label.split(' (')[0]}: ${fmt(best[V.sweepY1])}`]; if (y2) txt.push(`${y2.label.split(' (')[0]}: ${fmt(best[V.sweepY2])}`);
+      const bw = Math.max(...txt.map(t => g.measureText(t).width)) + 14, bx = x + 10 + bw > W ? x - 10 - bw : x + 10;
+      g.fillStyle = C.panel; g.strokeStyle = C.line; roundRect(g, bx, T + 6, bw, 14 * txt.length + 8, 6); g.fill(); g.stroke();
+      g.fillStyle = C.ink; g.textAlign = 'left'; txt.forEach((t, i) => g.fillText(t, bx + 7, T + 20 + 14 * i));
+    }
+  }
+}
+function drawHoleBars(g, W, H, C) {
+  const met = HOLE_METRICS[V.holeMetric];
+  const ids = P.holes.map((h, j) => j); if (P.endHole) ids.push(-1);
+  const L = 60, Rm = 16, T = 22, B = 34, Wp = W - L - Rm, Hp = H - T - B;
+  g.fillStyle = C.ink; g.font = '600 11px "Public Sans", sans-serif'; g.textAlign = 'left'; g.fillText(met.label, L, 12);
+  g.font = '500 10.5px "IBM Plex Mono", monospace';
+  if (!ids.length) { g.fillStyle = C.ink3; g.textAlign = 'center'; g.fillText('No outlets. Add holes by clicking the catheter.', W / 2, H / 2); return; }
+  const vals = ids.map(j => { try { return met.f(j); } catch (e) { return 0; } });
+  let lo = Math.min(0, ...vals.filter(isFinite)), hi = Math.max(...vals.filter(isFinite), 1e-9); hi *= 1.12;
+  const yt = niceTicks(lo, hi, 5); axisFrame(g, L, T, Wp, Hp, C, yt, lo, hi);
+  const yp = v => T + Hp * (1 - (v - lo) / (hi - lo || 1));
+  const bw = Math.min(46, Wp / ids.length * 0.7);
+  ids.forEach((j, i) => {
+    const x = L + Wp * (i + 0.5) / ids.length, v = vals[i];
+    const sel = j >= 0 && P.holes[j].id === V.selected;
+    g.fillStyle = j < 0 ? C.s['--s3'] : sel ? C.s['--s4'] : C.s['--s1'];
+    const y0 = yp(Math.max(lo, 0)), y1 = yp(isFinite(v) ? v : 0);
+    roundRect(g, x - bw / 2, Math.min(y0, y1), bw, Math.max(1, Math.abs(y1 - y0)), 3); g.fill();
+    g.fillStyle = C.ink2; g.textAlign = 'center'; g.fillText(fmt(v), x, Math.min(y0, y1) - 5);
+    g.fillStyle = C.ink3; g.fillText(j < 0 ? 'tip' : `#${j + 1}`, x, T + Hp + 14);
+    if (j >= 0 && ids.length < 18) g.fillText(`${P.holes[j].dist.toFixed(0)}mm`, x, T + Hp + 27);
+  });
+}
+function drawProfile(g, W, H, C) {
+  const R = SA.R, q = V.profileQ, mm = LV.main, tw = LV.twin;
+  const L = 60, Rm = 16, T = 22, B = 36, Wp = W - L - Rm, Hp = H - T - B;
+  const n = 160, ys = [], v1 = [], v0 = [];
+  const conv = { u: v => v * 100, g: v => v, mu: v => visc(v, SA.hf, SA.newt) * 1e3, pc: v => Pc(v) }[q];
+  for (let i = 0; i <= n; i++) {
+    const y = R - 2 * R * i / n; ys.push(y);
+    const inside = mm.fluid(y, 0);
+    v1.push(inside ? conv(q === 'u' ? mm.sampleU(y, 0) : mm.sampleF(mm.gd, y, 0)) : NaN);
+    v0.push(tw.fluid(y, 0) ? conv(q === 'u' ? tw.sampleU(y, 0) : tw.sampleF(tw.gd, y, 0)) : NaN);
+  }
+  const all = v1.concat(v0).filter(isFinite);
+  let lo = Math.min(0, ...all), hi = Math.max(...all, 1e-9); hi += (hi - lo) * 0.1;
+  axisFrame(g, L, T, Wp, Hp, C, niceTicks(lo, hi, 5), lo, hi);
+  const xp = i => L + Wp * i / n, yp = v => T + Hp * (1 - (v - lo) / (hi - lo || 1));
+  const ct = (R - (SA.e + SA.a0)) / (2 * R) * n, cb = (R - (SA.e - SA.a0)) / (2 * R) * n;
+  g.fillStyle = C.line; g.globalAlpha = 0.6; g.fillRect(xp(ct), T, xp(cb) - xp(ct), Hp); g.globalAlpha = 1;
+  g.fillStyle = C.ink3; g.textAlign = 'center'; g.fillText('catheter', (xp(ct) + xp(cb)) / 2, T + 14);
+  const line = (arr, col, dash) => { g.beginPath(); let st = false; arr.forEach((v, i) => { if (!isFinite(v)) { st = false; return; } const x = xp(i), y = yp(v); if (!st) { g.moveTo(x, y); st = true; } else g.lineTo(x, y); }); g.strokeStyle = col; g.lineWidth = 2; g.setLineDash(dash || []); g.stroke(); g.setLineDash([]); };
+  line(v0, C.ink3, [5, 4]); line(v1, C.s['--s1']);
+  const lab = { u: 'Velocity (cm/s)', g: 'Shear rate (s⁻¹)', mu: 'Viscosity (mPa·s)', pc: 'Coagulation propensity (0–1)' }[q];
+  g.fillStyle = C.ink; g.font = '600 11px "Public Sans", sans-serif'; g.textAlign = 'left'; g.fillText(`${lab} · solid: with catheter · dashed: no catheter`, L, 12);
+  g.font = '500 10.5px "IBM Plex Mono", monospace'; g.fillStyle = C.ink3; g.textAlign = 'center';
+  for (let i = 0; i <= 4; i++) g.fillText(`${(((R - 2 * R * i / 4)) * 1000).toFixed(1)}`, xp(n * i / 4), T + Hp + 15);
+  g.fillText('height above vessel axis (mm) · top wall → bottom wall', L + Wp / 2, H - 6);
+  if (chartHover) { const i = clamp(Math.round((chartHover.x - L) / Wp * n), 0, n); const x = xp(i); g.strokeStyle = C.ink3; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + Hp); g.stroke(); g.setLineDash([]); g.fillStyle = C.ink; g.textAlign = x > W - 150 ? 'right' : 'left'; g.fillText(`${(ys[i] * 1000).toFixed(2)} mm: ${fmt(v1[i])} (no cath ${fmt(v0[i])})`, x + (x > W - 150 ? -8 : 8), T + 30); }
+}
+
+/* ================= exports ================= */
+function saveFile(filename, data) {
+  const type = filename.endsWith('.csv') ? 'text/csv' : filename.endsWith('.html') ? 'text/html' : 'image/png';
+  const blob = data instanceof Blob ? data : new Blob([data], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  toast(`Saved ${filename}`);
+}
+const csvRow = a => a.map(v => { const s = typeof v === 'number' ? (isFinite(v) ? String(+v.toPrecision(6)) : '') : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(',');
+function chartCSV() {
+  const rows = [];
+  if (V.tab === 'live') {
+    const sel = V.liveSel.map(id => LIVE_METRICS.find(m => m.id === id)).filter(Boolean);
+    const head = ['flow_time_s', 'clinical_time_h']; sel.forEach(mt => mt.series.forEach(s => head.push(`${mt.label}${s[0] ? ' ' + s[0] : ''} (${mt.unit})`)));
+    rows.push(head);
+    histIter(i => { const r = [HIST.t[i], HIST.c[i]]; sel.forEach(mt => mt.series.forEach((s, j) => r.push(HIST.v[mt.id + j][i]))); rows.push(r); });
+  } else if (V.tab === 'sweep') {
+    rows.push([SWEEP_X[SW.x || V.sweepX].label, ...Object.keys(SWEEP_Y).filter(k => SWEEP_Y[k].f).map(k => SWEEP_Y[k].label)]);
+    for (const p of SW.pts) rows.push([p.x, ...Object.keys(SWEEP_Y).filter(k => SWEEP_Y[k].f).map(k => p[k])]);
+  } else if (V.tab === 'holes') {
+    rows.push(['outlet', 'distance_from_tip_mm', 'angle_deg', 'diameter_mm', ...Object.values(HOLE_METRICS).map(m => m.label)]);
+    P.holes.forEach((h, j) => rows.push([j + 1, h.dist, h.ang, h.dia, ...Object.values(HOLE_METRICS).map(m => m.f(j))]));
+    if (P.endHole) rows.push(['tip', 0, '', SA.net.end.r0 * 2000, ...Object.values(HOLE_METRICS).map(m => m.f(-1))]);
+  } else {
+    rows.push(['height_mm', 'velocity_cm_s', 'shear_rate_s-1', 'viscosity_mPa_s', 'velocity_no_catheter_cm_s', 'shear_rate_no_catheter_s-1']);
+    const R = SA.R, mm = LV.main, tw = LV.twin;
+    for (let i = 0; i <= 120; i++) { const y = R - 2 * R * i / 120, inC = mm.fluid(y, 0), g = inC ? mm.sampleF(mm.gd, y, 0) : NaN; rows.push([y * 1000, inC ? mm.sampleU(y, 0) * 100 : NaN, g, inC ? visc(g, SA.hf, SA.newt) * 1e3 : NaN, tw.sampleU(y, 0) * 100, tw.sampleF(tw.gd, y, 0)]); }
+  }
+  return rows.map(csvRow).join('\n');
+}
+function reportCSV() {
+  const m = SA, rows = [['section', 'quantity', 'value', 'unit']];
+  const add = (s, q, v, u) => rows.push([s, q, v, u || '']);
+  add('scenario', 'preset', PRESETS[P.preset] ? PRESETS[P.preset].label : 'custom');
+  add('vessel', 'diameter', P.D, 'mm'); add('vessel', 'baseline flow', P.Q, 'mL/min'); add('vessel', 'waveform', WAVES[P.wave]); add('vessel', 'heart rate', P.hr, '/min'); add('vessel', 'mean pressure', P.Pv, 'mmHg'); add('vessel', 'resistance share', P.share);
+  add('catheter', 'size', P.fr, 'Fr'); add('catheter', 'outer diameter', P.fr / 3, 'mm'); add('catheter', 'lumen diameter', m.ri * 2000, 'mm'); add('catheter', 'length', P.len, 'cm'); add('catheter', 'position', P.ecc); add('catheter', 'material', MATERIALS[P.mat].name);
+  add('catheter flow', 'direction', P.mode === 'aspirate' ? 'into catheter (withdrawal)' : 'out of catheter (infusion)'); add('catheter flow', 'fluid', P.mode === 'aspirate' ? 'blood' : INFUSATES[P.infusate].name); add('catheter flow', 'rate', P.inf, 'mL/min');
+  add('blood', 'hematocrit', P.hct, '%'); add('blood', 'rheology', P.rheo); add('patient', 'coagulability', COAG[P.coag].name); add('patient', 'anticoagulation', AC[P.ac].name);
+  add('results', 'blood flow', m.Qc * 6e7, 'mL/min'); add('results', 'flow reduction', m.flowRed * 100, '%'); add('results', 'catheter-to-vessel ratio', m.CVR);
+  add('results', 'mean velocity', m.Um * 100, 'cm/s'); add('results', 'Reynolds number', m.Re); add('results', 'Womersley number', m.Wo);
+  add('results', 'wall shear rate mean', m.wallGmean, '1/s'); add('results', 'wall shear rate min', m.wallGmin, '1/s'); add('results', 'wall shear rate no catheter', m.wallG0, '1/s');
+  add('results', 'wall shear stress mean', m.wallTauMean, 'Pa'); add('results', 'catheter surface shear rate', m.cathGmean, '1/s'); add('results', 'stasis area', m.stasis * 100, '%'); add('results', 'peak shear rate', m.gMax, '1/s');
+  add('results', 'hub pressure', m.hubP / MMHG, 'mmHg'); add('results', 'lumen Reynolds', m.net.lumenRe); add('results', 'fastest jet', m.jetVmax, 'm/s'); add('results', 'jet wall impact', m.tauImpMax, 'Pa'); add('results', 'side-hole flow CV', m.holeCV * 100, '%');
+  add('results', 'hemolysis rate', m.hemo, 'mg/dL/h'); add('results', 'platelet activation', m.plt, '%/h'); add('results', 'thrombosis risk index', m.risk, '/100');
+  add('results', 'Virchow stasis', m.virchow.S); add('results', 'Virchow injury', m.virchow.E); add('results', 'Virchow hypercoagulability', m.virchow.H);
+  add('clot', 'clinical time', CL.hours, 'h'); add('clot', 'fibrin sheath mean', arrMean(CL.cath) * 1e6, 'um'); add('clot', 'mural thrombus max', Math.max(arrMax(CL.wall), arrMax(CL.down)) * 1e6, 'um');
+  if (lastRates) { add('clot', 'fibrin growth rate', arrMean(lastRates.dc) * 1e6, 'um/h'); add('clot', 'mural growth rate', Math.max(arrMax(lastRates.dw), arrMax(lastRates.dd)) * 1e6, 'um/h'); }
+  const pj = CL.proj || {};
+  add('projection', 'sheath 100 um', pj.sheath100 ?? 'none in 30 d', 'h'); add('projection', 'first hole occluded', pj.firstHole ?? 'none in 30 d', 'h'); add('projection', 'catheter occluded', pj.occl ?? 'none in 30 d', 'h'); add('projection', 'thrombus half lumen', pj.dvt ?? 'none in 30 d', 'h');
+  rows.push([]); rows.push(['hole', 'distance_mm', 'angle_deg', 'diameter_mm', 'flow_mL_min', 'share_%', 'jet_m_s', 'jet_Re', 'wall_impact_Pa', 'occlusion_%']);
+  P.holes.forEach((h, j) => { const n = m.net.holes[j], J = m.jets[j]; rows.push([j + 1, h.dist, h.ang, h.dia, n.q * 6e7, m.net.Qin > 0 ? n.q / m.net.Qin * 100 : 0, n.v, J.Re, J.tauImp, (h.occ || 0) * 100]); });
+  if (P.endHole) rows.push(['tip', 0, '', m.net.end.r0 * 2000, m.net.end.q * 6e7, m.net.Qin > 0 ? m.net.end.q / m.net.Qin * 100 : 0, m.net.end.v, m.endJet ? m.endJet.Re : 0, 0, CL.end * 100]);
+  rows.push([]); rows.push(['angle_deg', 'wall_shear_rate_1/s', 'wall_shear_stress_Pa', 'catheter_shear_rate_1/s', 'mural_thrombus_um', 'fibrin_sheath_um']);
+  for (let k = 0; k < M; k++) rows.push([k / M * 360, m.wallG[k], m.wallTau[k], m.cathG[k], CL.wall[k] * 1e6, CL.cath[k] * 1e6]);
+  return rows.map(r => r.length ? csvRow(r) : '').join('\n');
+}
+$('exportChart').addEventListener('click', () => saveFile(`catheter-${V.tab}-chart.csv`, chartCSV()));
+$('exportReport').addEventListener('click', () => saveFile('catheter-report.csv', reportCSV()));
+$('savePng').addEventListener('click', () => cvView.toBlob(b => { if (b) saveFile('catheter-view.png', b); }, 'image/png'));
+$('downloadHtml').addEventListener('click', () => {
+  saveFile('catheter-hemodynamics-lab.html', SOURCE_HTML);
+});
+let toastT = null;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+
+/* ================= clinical clock ================= */
+let saRefreshT = 0;
+function stepClinical(dtH) {
+  if (!SA || dtH <= 0) return;
+  let rem = dtH, r = null;
+  const st = { cath: CL.cath, wall: CL.wall, down: CL.down, holes: P.holes.map(h => h.occ || 0), end: CL.end };
+  while (rem > 1e-9) { const dt = Math.min(0.25, rem); rem -= dt; r = clotRates(SA, P, st); integrate(st, r, dt, SA); CL.hours += dt; }
+  P.holes.forEach((h, j) => h.occ = st.holes[j]); CL.end = st.end;
+  lastRates = r;
+  const hSA = 2 * SA.R / (N_SA - 1);
+  let dmax = 0; for (let k = 0; k < M; k++) dmax = Math.max(dmax, Math.abs(CL.cath[k] - CL.cathB[k]), Math.abs(CL.wall[k] - CL.wallB[k]));
+  if (dmax > hSA / 3) { CL.cathB.set(CL.cath); CL.wallB.set(CL.wall); CL.version++; requestSA(0); }
+}
+
+/* ================= validation ================= */
+function validate() {
+  try {
+    const R = 2.5e-3, mu = CAR.muInf, G = 400, N = N_SA;
+    const s1 = new Section(N, R, 0, 0, null, null);
+    s1.steady({ G, hf: 1, newt: true, maxIt: 400, tol: 1e-7 });
+    const Qa = Math.PI * G * R ** 4 / (8 * mu), Qn = s1.flow(s1.u);
+    const ga = G * R / (2 * mu), gn = arrMean([0, 1, 2, 3, 4, 5, 6, 7].map(i => s1.wallShear(i / 8 * TAU).g));
+    const a = 0.35 * R, s2 = new Section(N, R, a, 0, null, null);
+    s2.steady({ G, hf: 1, newt: true, maxIt: 400, tol: 1e-7 });
+    const Qa2 = Math.PI * G / (8 * mu) * (R ** 4 - a ** 4 - (R * R - a * a) ** 2 / Math.log(R / a)), Qn2 = s2.flow(s2.u);
+    $('validation').innerHTML = `<b>Grid check (Newtonian, against exact solutions).</b> Poiseuille flow error ${(100 * (Qn / Qa - 1)).toFixed(2)}%, wall shear error ${(100 * (gn / ga - 1)).toFixed(2)}%, concentric annulus flow error ${(100 * (Qn2 / Qa2 - 1)).toFixed(2)}%.`;
+  } catch (e) { $('validation').textContent = 'Grid check could not run.'; }
+}
+
+/* ================= main loop ================= */
+let lastT = performance.now(), histT = 0, metT = 0, chartT = 0, xsT = 0;
+const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function frame(now) {
+  const dtReal = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  try { frameBody(dtReal); } catch (err) { console.error(err); }
+  requestAnimationFrame(frame);
+}
+function frameBody(dtReal) {
+  if (SA && (SA.net.holes.length !== P.holes.length || SA.jets.length !== P.holes.length)) runSA();
+  if (SA && LV.main) {
+    if (V.playing) {
+      const dtp = dtReal * V.slowmo;
+      stepLive(dtp);
+      stepParticles(dtp, dtReal);
+      if (V.clockRate > 0) {
+        stepClinical(dtReal * V.clockRate);
+        saRefreshT += dtReal;
+        if (saRefreshT > 0.8) { saRefreshT = 0; lastRates = clotRates(SA, P, { cath: CL.cath, wall: CL.wall, down: CL.down, holes: P.holes.map(h => h.occ || 0), end: CL.end }); if (!saPending) requestSA(0); }
+      }
+    }
+    renderView();
+    histT += dtReal; if (histT > 1 / 15) { histT = 0; if (V.playing) sampleHistory(); }
+    xsT += dtReal; if (xsT > 1 / 20) { xsT = 0; renderXS(); }
+    chartT += dtReal; if (chartT > 0.12) { chartT = 0; if (V.tab === 'live' || V.tab === 'profile') drawChart(); }
+    metT += dtReal; if (metT > 0.5) { metT = 0; updateReadouts(); }
+  }
+}
+const ro = new ResizeObserver(() => { bgKey = ''; if (SA) { renderView(); renderXS(); drawChart(); } });
+ro.observe(cvView); ro.observe(cvChart); ro.observe(cvXs);
+const mo = new MutationObserver(() => drawChart()); mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => drawChart());
+
+loadPreset('picc');
+syncUI(); buildChips();
+if (reduced) { V.playing = false; $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); }
+runSA();
+requestAnimationFrame(frame);
+setTimeout(validate, 800);
+})();
+</script>
+</body>
+</html>
