@@ -1178,28 +1178,54 @@ const LP = [];   // lumen particles
 const emitAcc = new Map();
 const view = { W: 0, H: 0, k: 1, kx: 1, cy: 0, dpr: 1 };
 function viewRange() { const L = view.W / view.kx; return [V.viewX0 - 0.04 * L, V.viewX0 + 1.04 * L]; }
+// one red cell / platelet / white cell at a random height, placed at x in [xl, xr]
+function sampleCell(i, xl, xr) {
+  const R = SA.R, slice = V.cells === 'slice';
+  let y = 0, z = 0;
+  const roll = Math.random(), ty = roll < 0.12 ? 1 : (roll < 0.125 ? 2 : 0);
+  for (let tries = 0; tries < 60; tries++) {
+    if (ty === 0) { y = (Math.random() * 2 - 1) * R; z = slice ? (Math.random() * 2 - 1) * 0.12 * R : (Math.random() * 2 - 1) * R; }
+    else {
+      const rr = R * (ty === 1 ? 0.8 + 0.17 * Math.random() : 0.86 + 0.08 * Math.random());
+      if (slice) { z = (Math.random() * 2 - 1) * 0.12 * R; const yy = Math.sqrt(Math.max(0, rr * rr - z * z)); y = Math.random() < 0.5 ? yy : -yy; }
+      else { const a = Math.random() * TAU; y = rr * Math.cos(a); z = rr * Math.sin(a); }
+    }
+    if (y * y + z * z < (R * 0.985) ** 2 && LV.main.fluid(y, z)) break;
+  }
+  RB.x[i] = xl + Math.random() * (xr - xl); RB.y[i] = y; RB.z[i] = z; RB.ty[i] = ty; RB.ph[i] = Math.random() * TAU; RB.mp[i] = 0;
+  RB.sz[i] = ty === 0 ? 0.85 + 0.3 * Math.random() : ty === 1 ? 0.8 + 0.4 * Math.random() : 1;
+}
 function resetParticles() {
   if (!SA || !view.W) return;
-  const R = SA.R, slice = V.cells === 'slice';
-  RB.n = slice ? 750 : 1300;
+  RB.n = V.cells === 'slice' ? 750 : 1300;
   const [xl, xr] = viewRange();
-  for (let i = 0; i < RB.n; i++) {
-    let y = 0, z = 0, ty = 0;
-    const roll = Math.random();
-    ty = roll < 0.12 ? 1 : (roll < 0.125 ? 2 : 0);
-    for (let tries = 0; tries < 60; tries++) {
-      if (ty === 0) { y = (Math.random() * 2 - 1) * R; z = slice ? (Math.random() * 2 - 1) * 0.12 * R : (Math.random() * 2 - 1) * R; }
-      else {
-        const rr = R * (ty === 1 ? 0.8 + 0.17 * Math.random() : 0.86 + 0.08 * Math.random());
-        if (slice) { z = (Math.random() * 2 - 1) * 0.12 * R; const yy = Math.sqrt(Math.max(0, rr * rr - z * z)); y = Math.random() < 0.5 ? yy : -yy; }
-        else { const a = Math.random() * TAU; y = rr * Math.cos(a); z = rr * Math.sin(a); }
-      }
-      if (y * y + z * z < (R * 0.985) ** 2 && LV.main.fluid(y, z)) break;
-    }
-    RB.x[i] = xl + Math.random() * (xr - xl); RB.y[i] = y; RB.z[i] = z; RB.ty[i] = ty; RB.ph[i] = Math.random() * TAU; RB.mp[i] = 0;
-    RB.sz[i] = ty === 0 ? 0.85 + 0.3 * Math.random() : ty === 1 ? 0.8 + 0.4 * Math.random() : 1;
-  }
+  for (let i = 0; i < RB.n; i++) sampleCell(i, xl, xr);
+  view.pr = [xl, xr];
   JP.length = 0; LP.length = 0;
+}
+// After a zoom or pan, keep the cells still in view and move the rest into the newly exposed part of the vessel, so
+// the cells on screen stay evenly spread (same number on screen at any zoom).
+function refillParticles() {
+  const [nl, nr] = viewRange(), [ol, or] = view.pr || [nl, nr];
+  view.pr = [nl, nr];
+  const Lnew = nr - nl; if (!(Lnew > 0)) return;
+  if (or <= nl || ol >= nr) { for (let i = 0; i < RB.n; i++) sampleCell(i, nl, nr); return; }   // no overlap: start over
+  const gaps = [];                                                         // newly exposed stretches
+  if (ol > nl) gaps.push([nl, ol]);
+  if (or < nr) gaps.push([or, nr]);
+  const Lexp = gaps.reduce((s2, g) => s2 + g[1] - g[0], 0);
+  const need = Math.round(RB.n * Lexp / Lnew);
+  const outside = [], inside = [];
+  for (let i = 0; i < RB.n; i++) (RB.x[i] < nl || RB.x[i] > nr ? outside : inside).push(i);
+  for (let k = inside.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); const t = inside[k]; inside[k] = inside[j]; inside[j] = t; }
+  const move = outside.concat(inside.slice(0, Math.max(0, need - outside.length)));
+  move.forEach((i, k) => {
+    if (k < need && Lexp > 0) {                                            // into the exposed stretches, by length
+      let u = Math.random() * Lexp, g = gaps[0];
+      for (const gg of gaps) { if (u <= gg[1] - gg[0]) { g = gg; break; } u -= gg[1] - gg[0]; }
+      sampleCell(i, g[0], g[1]);
+    } else sampleCell(i, nl, nr);
+  });
 }
 function devLength() { const Re = SA.Re0; return Math.max(0.5, 0.6 / (1 + 0.035 * Re) + 0.056 * Re) * 2 * SA.R; }
 function blendB(x) { return x <= 0 ? 0 : 1 - Math.exp(-3 * x / devLength()); }
@@ -1904,6 +1930,7 @@ function renderView() {
   }
   const gk = [R, Math.round(view.W), Math.round(view.H)].join('|');
   if (RB.n === 0 || view.gk !== gk) { view.gk = gk; resetParticles(); }
+  else { const [xl, xr] = viewRange(), pr = view.pr; if (!pr || Math.abs(pr[0] - xl) > 1e-9 || Math.abs(pr[1] - xr) > 1e-9) refillParticles(); }
   drawBackground();
   drawOverlay();
   drawMural();
