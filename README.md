@@ -35,7 +35,9 @@ Anyone using the site can also press **Download this simulator (HTML)** to keep 
 
 - **Blood flow:** solves the flow across the vessel cross-section on a 65×65 grid, with shear-thinning (Carreau) blood and pulsatile waveforms. It handles any catheter position and any clot deposited so far.
 - **Catheter flow:** two directions. **Out of catheter** covers infusion and dialysis return; **Into catheter** covers aspiration and dialysis withdrawal. Side holes are placed by clicking the catheter, each with its own size and angle, and the model solves how the flow splits between them.
-- **Shear and blood damage:** wall and catheter shear rates and stresses, jet impact on the vessel wall, hemolysis and platelet activation (Giersiepen power laws).
+- **Dialysis mode:** a double-D dual-lumen catheter with step, flush or symmetric tips, standard or reversed lines, and A-wave backflow. Each lumen is solved separately. Recirculation comes from a per-opening model calibrated on 3D lattice-Boltzmann simulations of neonatal tips. The cards also show both lumen pressures, effective blood flow and the heparin spilled from the lock. The *Neonatal dialysis* presets show the recommended design (symmetric tip, no side holes) next to a typical step tip with side holes.
+- **Shear and blood damage:** wall and catheter shear rates and stresses, jet impact on the vessel wall, hemolysis (Ding 2015 human-blood power law by default, optional ×1.6 neonatal fragility, Giersiepen 1990 as an option) and platelet activation.
+- **Confidence badges:** every readout says how far to trust it (high, medium or low) and why.
 - **Clotting:** fibrin sheath, mural thrombus and hole occlusion grow on a separate clinical clock. A thrombosis risk index is built from Virchow's triad.
 
 The in-app *Methods, assumptions & references* panel lists every equation and source. This is an educational model and must not be used for clinical decisions.

@@ -73,7 +73,7 @@ details.sec[open]>summary::after{transform:rotate(-135deg)}
 .ctl select{grid-column:1/-1}
 .ctl .note{grid-column:1/-1;font-size:.74rem;color:var(--ink-3)}
 .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.seg{display:inline-grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+.seg{display:inline-grid;grid-template-columns:repeat(3,auto);border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
 .seg label{display:flex;flex-direction:column;padding:5px 12px;cursor:pointer;font-weight:600;font-size:.82rem;line-height:1.2;color:var(--ink-2)}
 .seg label small{font-weight:500;font-size:.68rem;color:var(--ink-3)}
 .seg label+label{border-left:1px solid var(--line)}
@@ -127,6 +127,18 @@ table.holes tr:hover td{background:var(--panel-2)}
 .card .s{font-size:.68rem;color:var(--ink-3);margin-top:2px;overflow-wrap:anywhere}
 .pill{display:inline-block;font:600 .62rem var(--font-ui);letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:1px}
 .pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.crit{background:var(--crit-soft);color:var(--crit)}
+.card .khead{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+.conf{flex:none;display:inline-flex;align-items:center;gap:4px;font:600 .62rem/1 var(--font-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);background:none;border:1px solid var(--line);border-radius:999px;padding:2px 6px 2px 5px;cursor:pointer;margin-top:-1px}
+.conf:hover,.conf[aria-expanded="true"]{color:var(--ink-2);border-color:var(--ink-3)}
+.conf:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.conf i{display:inline-flex;align-items:flex-end;gap:1.5px;height:8px}
+.conf i b{display:block;width:2.5px;border-radius:1px;background:var(--line)}
+.conf i b:nth-child(1){height:3px}.conf i b:nth-child(2){height:5.5px}.conf i b:nth-child(3){height:8px}
+.conf.c1 i b:nth-child(-n+1),.conf.c2 i b:nth-child(-n+2),.conf.c3 i b{background:var(--accent)}
+.card .why{font-size:.66rem;line-height:1.35;color:var(--ink-2);background:var(--panel);border-radius:6px;padding:5px 7px;margin-top:5px}
+.card .why b{color:var(--ink)}
+.confnote{font-size:.68rem;color:var(--ink-3);display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 2px}
+.confnote .conf{cursor:default}
 .vbars{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:3px 8px;align-items:center;margin-top:6px;font-size:.7rem;color:var(--ink-2)}
 .vbar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .vbar span{display:block;height:100%;background:var(--accent)}
@@ -145,7 +157,12 @@ table.holes tr:hover td{background:var(--panel-2)}
 @media (max-width:820px){
   .legend{position:static;padding:6px 10px;background:var(--stage)}
   .app{grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "main" "ctrl" "side"}
-  .hbar{margin-left:0}
+  .hbar{margin-left:0;width:100%;min-width:0}
+  .hbar>label.row{flex:1 1 100%;min-width:0;flex-wrap:nowrap}
+  #preset{flex:1 1 auto;min-width:0;width:100%;text-overflow:ellipsis}
+  .seg{display:grid;width:100%;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .seg label{padding:5px 8px}
+  .card .khead .conf{font-size:0;gap:0;padding:3px 5px}
   #view{height:320px}
   #chart{height:260px}
   .side{display:flex}
@@ -166,7 +183,8 @@ table.holes tr:hover td{background:var(--panel-2)}
       </label>
       <div class="seg" role="radiogroup" aria-label="Flow direction through the catheter">
         <label for="modeOut"><input type="radio" name="mode" id="modeOut" autocomplete="off" value="infuse">Out of catheter<small>infusion · dialysis return</small></label>
-        <label for="modeIn"><input type="radio" name="mode" id="modeIn" autocomplete="off" value="aspirate">Into catheter<small>aspiration · dialysis withdrawal</small></label>
+        <label for="modeIn"><input type="radio" name="mode" id="modeIn" autocomplete="off" value="aspirate">Into catheter<small>aspiration · blood draw</small></label>
+        <label for="modeDl"><input type="radio" name="mode" id="modeDl" autocomplete="off" value="dialysis">Dialysis<small>both lumens · recirculation</small></label>
       </div>
       <button class="btn primary" id="play" type="button" aria-pressed="true">Pause</button>
       <button class="btn" id="resetView" type="button">Reset view</button>
@@ -226,7 +244,20 @@ table.holes tr:hover td{background:var(--panel-2)}
       </div>
     </details>
 
-    <details class="sec" open>
+    <details class="sec" open id="dlSec" hidden>
+      <summary>Dialysis</summary>
+      <div class="secbody">
+        <div class="hint">Dual-lumen catheter. The top half is the arterial lumen, which draws blood to the machine. The bottom half is the venous lumen, which returns it. Holes belong to the half they sit on (top: 270°–90°).</div>
+        <div class="ctl"><label for="dlTip">Tip design</label><select id="dlTip"><option value="step">Step tip (staggered)</option><option value="flush">Flush tip (both lumens end together)</option><option value="symmetric">Symmetric tip (openings face opposite sides)</option></select></div>
+        <div class="ctl" id="dlOffRow"><label for="dlOff">Step: venous tip beyond arterial opening</label><output id="odlOff"></output><input type="range" id="dlOff" min="1" max="30" step="0.5"><span class="note">Adult catheters use 20–30 mm. A neonatal SVC is only 2–3 cm long.</span></div>
+        <div class="ctl"><label for="dlLines">Blood lines</label><select id="dlLines"><option value="standard">Standard (draw through arterial)</option><option value="reversed">Reversed (draw through venous)</option></select><span class="note">Lines are often reversed when the arterial lumen stops drawing well.</span></div>
+        <div class="ctl"><label for="dlQb">Dialysis blood flow</label><output id="odlQb"></output><input type="range" id="dlQb" min="0" max="1000" step="1"><span class="note" id="dlQbNote"></span></div>
+        <div class="ctl"><label for="dlRev">Backflow per heartbeat</label><output id="odlRev"></output><input type="range" id="dlRev" min="0" max="30" step="0.5"><span class="note">Share of each beat's forward flow that runs backwards in the A wave. Healthy about 0–10%, pulmonary hypertension or arrhythmia 15–30%.</span></div>
+        <div class="ctl"><label for="dlWt">Patient weight</label><output id="odlWt"></output><input type="range" id="dlWt" min="0" max="1000" step="1"></div>
+      </div>
+    </details>
+
+    <details class="sec" open id="infSec">
       <summary>Catheter flow</summary>
       <div class="secbody">
         <div class="hint" id="modeHint"></div>
@@ -242,6 +273,8 @@ table.holes tr:hover td{background:var(--panel-2)}
         <div class="ctl"><label for="rheo">Blood rheology</label><select id="rheo"><option value="carreau">Shear-thinning (Carreau)</option><option value="newtonian">Newtonian</option></select></div>
         <div class="ctl"><label for="coag">Coagulability</label><select id="coag"></select></div>
         <div class="ctl"><label for="ac">Anticoagulation</label><select id="ac"></select></div>
+        <div class="ctl"><label for="hemoModel">Red cell damage model</label><select id="hemoModel"><option value="ding">Ding 2015, human blood</option><option value="giersiepen">Giersiepen 1990 (legacy, high)</option></select></div>
+        <label class="check" for="neo"><input type="checkbox" id="neo"> Neonatal red cells (about 1.6× more fragile)</label>
       </div>
     </details>
 
@@ -268,7 +301,7 @@ table.holes tr:hover td{background:var(--panel-2)}
   <main class="mainc">
     <div class="stage" id="stage">
       <canvas id="view" tabindex="0" aria-label="Side view of the vessel and catheter. Click the catheter to add holes."></canvas>
-      <div class="legend" aria-hidden="true"><span><i style="background:#d8404b"></i>Red cells</span><span><i style="background:#f0d27a"></i>Platelets</span><span id="legInf"><i style="background:#7fd0ff"></i>Infusate</span><span><i style="background:#e9dcc0"></i>Fibrin sheath</span><span><i style="background:#6e1d14"></i>Thrombus</span></div>
+      <div class="legend" aria-hidden="true"><span><i style="background:#d8404b"></i>Red cells</span><span><i style="background:#f0d27a"></i>Platelets</span><span id="legInf"><i style="background:#7fd0ff"></i>Infusate</span><span id="legRet" hidden><i style="background:#c99bff"></i>Returned blood</span><span><i style="background:#e9dcc0"></i>Fibrin sheath</span><span><i style="background:#6e1d14"></i>Thrombus</span></div>
       <div id="tip" hidden></div>
     </div>
     <div class="viewbar"><span id="viewInfo"></span></div>
@@ -321,7 +354,9 @@ table.holes tr:hover td{background:var(--panel-2)}
         <p><b>Infusion network.</b> Lumen segments use Hagen–Poiseuille (Blasius above Re 2300). Each hole is a wall channel plus Sampson orifice resistance plus an inertial loss (K = 2.7), with pressure regain at each branch. Solved by shooting on tip pressure.</p>
         <p><b>Withdrawal mode.</b> Blood enters each hole as a point sink, so its capture radius is √(q/2πU) in a cross-flow U. Inlet loss K = 1.5. Merging flows inside the lumen lose pressure by ρ(v₂² − v₁²). A hole closer than 0.6 diameters to the vessel wall is sealed by suction. A fibrin sheath acts as a flap valve that blocks withdrawal but not infusion. Blood is damaged by shear in the holes and along the lumen.</p>
         <p><b>Jets.</b> Trajectory in cross-flow y/rd = 2.05(x/rd)^0.28 (Pratte &amp; Baines 1967). Centreline decay u = 6.2·d·u₀/s. Wall impact shear τ = 0.44ρu²Re^−½ (Phares et al. 2000). Acute endothelial damage near 38 Pa (Fry 1968).</p>
-        <p><b>Blood damage.</b> Giersiepen et al. (1990) power laws: hemolysis 3.62×10⁻⁵·t^0.785·τ^2.416 %, platelet LDH release 3.31×10⁻⁶·t^0.77·τ^3.075 %. Exposed blood flow from jet entrainment 0.32·q·x/d (Ricou &amp; Spalding 1961), capped at the local blood flow. 5 L blood volume, Hb ≈ Hct/3.</p>
+        <p><b>Dialysis mode.</b> A double-D catheter: the top half (hole angles 270–90°) is the arterial lumen and the bottom half the venous lumen, each solved as its own hole network. Each D lumen has the Poiseuille resistance of a round lumen of radius r(0.660 − 0.258·s/r) (Poisson solve, septum s = 0.15 mm). In a step tip the arterial lumen ends at the step. Recirculation is summed over every pair of returning and drawing openings, weighted by their flows. 3D lattice-Boltzmann simulations of neonatal tips (D3Q19, regularized collision, 0.125 mm grid, a dye tracer on the returned blood; 46 steady cases fitted to an RMS error of 1.3 percentage points) showed that in laminar flow the returned blood stays in a thin streak on its own side of the catheter. A draw opening at the catheter's terminus collects the wake from all around, so it captures blood returned anywhere upstream: about 16% × (1 − 0.45e<sup>−s/2.5 mm</sup>) at a separation s. A draw opening part-way along (a step face or side hole) only collects from its own half, about 1% as much from the other lumen's side. Blood returned downstream of the draw does not come back in steady flow (0.00% for step offsets of 2–15 mm), except side by side at a flush tip (about 20%). Symmetric tips with no side holes stay near 0%. During the A wave, backflow of f/(1 − f)·U·T per beat carries returned blood back to openings within reach. A catheter lying near the wall concentrates the streak (×1.7 at 85% of the way to the wall). Grid and time-step checks put the absolute values within about ±20%. Adult bench and clinical data agree: standard lines 0–3%, reversed step tips 9–27%, flush tips 13–17%. Lock spill is 20% of the lumen volume, plus 7% with side holes or 1.5% without.</p>
+        <p><b>Neonatal design study.</b> The dialysis model was used to compare 40,000 catheter designs. The 3,000 best were re-tested on 60 simulated neonates and the top 100 on 400 more, covering 2–5 kg, sick low-flow babies and strong A-wave backflow. The scoring covered pressure alarms, wall suction with line swapping, recirculation on both line connections, lock clotting, internal jugular fill, hemolysis, spilled lock heparin and circuit life. A <i>symmetric tip with no side holes</i> won in every weight band: about 0% recirculation with standard or swapped lines, and the least lock clotting. Side holes cut wall-suction blockage but clotted about 20× more during a lock and spilled more heparin. A step tip without side holes recirculates about 18–22% once its lines are swapped. Side holes cut that but clot during the lock. Best size: 7 Fr at 2–3 kg, 7.5 Fr at 3–4 kg, 8 Fr at 4–5 kg, each within about 3% of the neighbouring sizes. The <i>Neonatal dialysis</i> presets show the recommended and a typical design.</p>
+        <p><b>Blood damage.</b> Default: Ding et al. (2015) human-blood power law, hemolysis 3.458×10⁻⁶·t^0.2777·τ^2.0639 %, optionally ×1.6 for neonatal red cells (Heyer et al. 2025). Legacy option: Giersiepen et al. (1990) 3.62×10⁻⁵·t^0.785·τ^2.416 %. Platelet LDH release 3.31×10⁻⁶·t^0.77·τ^3.075 %. Exposed blood flow from jet entrainment 0.32·q·x/d (Ricou &amp; Spalding 1961), capped at the local blood flow. 5 L blood volume (in dialysis mode, the patient's own, about 80 mL/kg), Hb ≈ Hct/3.</p>
         <p><b>Clot kinetics (semi-empirical).</b> Coagulation propensity P(γ̇) = 1/[1 + (γ̇/30 s⁻¹)^2.5], reflecting the shear threshold of coagulation (Shen et al. 2008). Growth dδ/dt = J·H·P·(I + δ/δ₀) + platelet term − k(1 + τ/10 Pa)δ with J = 4 µm/h, δ₀ = 50 µm, k = 0.04 h⁻¹. Catheter surfaces add shear-independent protein adsorption. Holes wash out with flow velocity v/(v + 2 cm/s), and clot inside a hole is shielded from lysis (rate × 0.3). Calibrated to known trends: fibrin sheaths form within days, and stasis plus hypercoagulability propagates thrombus. Not validated against patient outcomes.</p>
         <p><b>Thrombosis risk index.</b> Virchow's triad: stasis (flow and wall-shear loss), endothelial injury (catheter-to-vessel ratio above 0.45 per Sharp et al. 2015, wall contact, jet impact) and hypercoagulability (patient, drugs, material, platelet activation). Index = 100(1 − e^(−3.5·S·E·H)). Use it to compare designs, not as a probability.</p>
         <p><b>Limits.</b> Rigid straight vessel, no valves or branches, catheter straight and parallel to the axis, cells drawn enlarged and not to scale. Educational model. Not for clinical decisions.</p>
@@ -339,6 +374,14 @@ table.holes tr:hover td{background:var(--panel-2)}
           <li>Ricou FP, Spalding DB. J Fluid Mech 1961;11:21–32.</li>
           <li>Durst F et al. J Fluids Eng 2005;127:1154–1160.</li>
           <li>Womersley JR. J Physiol 1955;127:553–563.</li>
+          <li>Ding J et al. Shear-induced hemolysis: species differences. Artif Organs 2015;39:795–802.</li>
+          <li>Heyer et al. Front Pediatr 2025;13:1616084 (neonatal red-cell fragility).</li>
+          <li>Vesely TM, Ravenscroft A. J Vasc Access 2016;17:29–39 (dialysis tip recirculation).</li>
+          <li>Twardowski ZJ, Van Stone JC, Haynie JD. Am J Kidney Dis 1998;32:1046–1058.</li>
+          <li>Stevens-Harris I, Raffaj D, Davies P. BMJ Paediatr Open 2017;1:e000013 (neonatal catheter pressure-flow).</li>
+          <li>Kluckow M, Evans N. Arch Dis Child Fetal Neonatal Ed 2000;82:F182–F187 (neonatal SVC flow).</li>
+          <li>Breschan C et al. Br J Anaesth 2010;105:179–184 (neonatal internal jugular size).</li>
+          <li>Xiong et al. Anesthesiology 2025;142:298–307 (catheter-to-vein ratio and neonatal thrombosis).</li>
         </ol>
       </div>
     </details>
@@ -391,7 +434,7 @@ const MATERIALS = {
   pu: { name: 'Polyurethane', f: 1.0, tint: [206, 226, 236] },
   silicone: { name: 'Silicone', f: 1.1, tint: [232, 234, 230] },
   pvc: { name: 'PVC / polyethylene', f: 1.6, tint: [222, 234, 214] },
-  hep: { name: 'Heparin-bonded polyurethane', f: 0.55, tint: [204, 216, 244] }
+  hep: { name: 'Heparin-bonded polyurethane', f: 0.9, tint: [204, 216, 244] }
 };
 const COAG = {
   normal: { name: 'Normal', f: 1 }, postop: { name: 'Post-operative', f: 1.6 }, preg: { name: 'Pregnancy or postpartum', f: 1.7 },
@@ -446,6 +489,9 @@ function genHoles(n, spacing, first, pattern, dia, taper) {
 }
 
 const PRESETS = {
+  neoHD: { label: 'Neonatal dialysis, recommended: 7 Fr symmetric tip, no side holes (3 kg)', mode: 'dialysis', D: 5.5, Q: 255, wave: 'central', hr: 140, rr: 45, Pv: 5, vtype: 'vein', share: 0.2, fr: 7, wallT: 0.2, len: 7, ecc: 0.3, mat: 'pu', endHole: true, endDia: null, infusate: 'blood', inf: 25, hct: 45, rheo: 'carreau', coag: 'normal', ac: 'therapeutic', tip: 'symmetric', offset: 10, lines: 'standard', qb: 25, wt: 3, revFrac: 0.05, neo: true, holes: () => [] },
+  neoHDstep: { label: 'Neonatal dialysis, typical step tip with side holes (7 Fr, 3 kg)', mode: 'dialysis', D: 5.5, Q: 255, wave: 'central', hr: 140, rr: 45, Pv: 5, vtype: 'vein', share: 0.2, fr: 7, wallT: 0.2, len: 7, ecc: 0.3, mat: 'pu', endHole: true, endDia: null, infusate: 'blood', inf: 25, hct: 45, rheo: 'carreau', coag: 'normal', ac: 'therapeutic', tip: 'step', offset: 10, lines: 'standard', qb: 25, wt: 3, revFrac: 0.05, neo: true, holes: () => [{ id: HID++, dist: 13, ang: 30, dia: 0.7, occ: 0 }, { id: HID++, dist: 16, ang: 330, dia: 0.7, occ: 0 }, { id: HID++, dist: 3, ang: 150, dia: 0.7, occ: 0 }, { id: HID++, dist: 6, ang: 210, dia: 0.7, occ: 0 }] },
+  adultHD: { label: 'Adult dialysis catheter (14.5 Fr step tip)', mode: 'dialysis', D: 20, Q: 2000, wave: 'central', hr: 75, rr: 14, Pv: 5, vtype: 'vein', share: 0.2, fr: 14.5, wallT: 0.45, len: 24, ecc: 0.15, mat: 'pu', endHole: true, endDia: null, infusate: 'blood', inf: 300, hct: 32, rheo: 'carreau', coag: 'normal', ac: 'none', tip: 'step', offset: 25, lines: 'standard', qb: 300, wt: 70, holes: () => [{ id: HID++, dist: 31, ang: 30, dia: 1.6, occ: 0 }, { id: HID++, dist: 36, ang: 330, dia: 1.6, occ: 0 }, { id: HID++, dist: 6, ang: 150, dia: 1.6, occ: 0 }, { id: HID++, dist: 11, ang: 210, dia: 1.6, occ: 0 }] },
   picc: { label: 'PICC in basilic vein', D: 5.0, Q: 60, wave: 'venous', hr: 72, rr: 14, Pv: 8, vtype: 'vein', share: 0.5, fr: 5, wallT: 0.28, len: 45, ecc: 0, mat: 'pu', endHole: true, endDia: null, infusate: 'saline', inf: 2.0, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
   piv: { label: 'Peripheral IV (20 G), forearm vein', D: 3.0, Q: 20, wave: 'venous', hr: 72, rr: 14, Pv: 10, vtype: 'vein', share: 0.5, fr: 3.3, wallT: 0.15, len: 3.2, ecc: 0.35, mat: 'pu', endHole: true, endDia: null, infusate: 'saline', inf: 1.7, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
   power: { label: 'Contrast power injection (18 G, 5 mL/s)', D: 4.5, Q: 45, wave: 'venous', hr: 80, rr: 14, Pv: 10, vtype: 'vein', share: 0.5, fr: 3.9, wallT: 0.15, len: 3.2, ecc: 0, mat: 'pu', endHole: true, endDia: null, infusate: 'iohexol350', inf: 300, hct: 42, rheo: 'carreau', coag: 'normal', ac: 'none', holes: () => [] },
@@ -467,12 +513,18 @@ const V = {
 };
 const CL = { cath: new Float64Array(M), wall: new Float64Array(M), down: new Float64Array(M), end: 0, hours: 0, version: 0, cathB: new Float64Array(M), wallB: new Float64Array(M), proj: null };
 let SA = null, lastRates = null;
+let preDL = null;   // single-lumen end hole / infusate saved while in dialysis mode
 const saCache = {}, swCache = {};
 
 function loadPreset(key) {
   const p = PRESETS[key];
   Object.assign(P, JSON.parse(JSON.stringify(Object.assign({}, p, { holes: undefined }))));
   P.preset = key; P.holes = p.holes(); P.mode = p.mode || 'infuse';
+  // dual-lumen dialysis settings (used when mode = 'dialysis')
+  P.tip = p.tip || 'step'; P.offset = p.offset !== undefined ? p.offset : 10; P.lines = p.lines || 'standard';
+  preDL = null;
+  P.qb = p.qb !== undefined ? p.qb : 30; P.wt = p.wt !== undefined ? p.wt : 3; P.revFrac = p.revFrac !== undefined ? p.revFrac : 0.05;
+  P.neo = !!p.neo; P.hemoModel = p.hemoModel || 'ding';
   V.selected = null; V.viewX0 = null; V.zoom = 1;
   resetClot();
 }
@@ -755,14 +807,21 @@ function jetCalc(q, v, d, gap, Uc, inf, muInf, Qblood) {
   J.gJet = 8 * v / d;
   J.tauJet = muInf * J.gJet + 0.012 * RHO_B * v * v * (J.Re * J.Re / (J.Re * J.Re + 4e6));
   const t = Math.min(0.2, 10 * d / v);
-  J.HI = 3.62e-5 * Math.pow(t, 0.785) * Math.pow(J.tauJet, 2.416);
+  J.HI = hemoIndex(t, J.tauJet);
   J.PAS = 3.31e-6 * Math.pow(t, 0.77) * Math.pow(J.tauJet, 3.075);
   const Lr = J.impinge ? Math.max(1, gap / d) : 10;
   J.Qent = Math.min(0.32 * q * Math.min(10, Lr), Math.max(Qblood, 0));
   return J;
 }
 
-function giersiepen(t, tau) { return { HI: 3.62e-5 * Math.pow(t, 0.785) * Math.pow(tau, 2.416), PAS: 3.31e-6 * Math.pow(t, 0.77) * Math.pow(tau, 3.075) }; }
+// Hemolysis power law HI(%) = C t^b tau^a. Ding 2015 (human blood) is the default; Giersiepen 1990 is kept as the
+// legacy, conservative option. Neonatal red cells are about 1.6x more fragile (Heyer 2025). Platelet activation: Giersiepen.
+const HEMO = { model: 'ding', neo: false };
+function hemoIndex(t, tau) {
+  const hi = HEMO.model === 'giersiepen' ? 3.62e-5 * Math.pow(t, 0.785) * Math.pow(tau, 2.416) : 3.458e-6 * Math.pow(t, 0.2777) * Math.pow(tau, 2.0639);
+  return hi * (HEMO.neo ? 1.6 : 1);
+}
+function giersiepen(t, tau) { return { HI: hemoIndex(t, tau), PAS: 3.31e-6 * Math.pow(t, 0.77) * Math.pow(tau, 3.075) }; }
 function inletCalc(q, v, d, gap, Uc, muB) {
   const J = { q, v, d, gap, inlet: true, impinge: false, tauImp: 0, r: 0, pen: 0, HI: 0, PAS: 0, Qent: 0, gJet: 0, tauJet: 0, Re: 0, rc: 0 };
   if (!(q > 0) || !(v > 0) || !(d > 0)) return J;
@@ -828,6 +887,7 @@ function project(m, Pp) {
 
 /* ================= full steady evaluation ================= */
 function evaluate(Pp, opt) {
+  HEMO.model = Pp.hemoModel || 'ding'; HEMO.neo = !!Pp.neo;
   const N = opt.N, cache = opt.cache, cs = opt.clot || null;
   const R = Pp.D / 2000, a0 = Pp.fr * FR_M / 2;
   const hf = hctFactor(Pp.hct), newt = Pp.rheo === 'newtonian', muInf = CAR.muInf * hf;
@@ -877,17 +937,17 @@ function evaluate(Pp, opt) {
   let As0 = 0, At0 = 0;
   for (let k = 0; k < twin.fl.length; k++) if (twin.fl[k]) { At0 += twin.w[k]; if (twin.gd[k] < GAMMA_C) As0 += twin.w[k]; }
   m.stasis0 = As0 / At0;
-  const ri = Math.max(0.04e-3, a0 - Pp.wallT / 1000); m.ri = ri;
+  const ri = Pp.riEff ? Pp.riEff : Math.max(0.04e-3, a0 - Pp.wallT / 1000); m.ri = ri;
   const asp = Pp.mode === 'aspirate'; m.asp = asp;
   const hg = Pp.holes.map(h => {
     const th = h.ang * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
     const rc = a0 + (cc ? interpA(cc, th) : 0), Sy = e + rc * c, Sz = rc * s;
     const gap = main.gapAlong(Sy, Sz, c, s);
     const Uc = Math.max(Math.abs(main.sampleU(Sy + c * gap / 2, Sz + s * gap / 2)), 1e-4);
-    return { th, c, s, Sy, Sz, gap, Uc, sheath: cc ? interpA(cc, th) : 0, sealed: asp && gap < 0.6 * h.dia / 1000 };
+    return { th, c, s, Sy, Sz, gap, Uc, sheath: cc ? interpA(cc, th) : 0, sealed: asp && !((h.occ || 0) > 0.97) && gap < 0.6 * h.dia / 1000 };
   });
   let extra = null;
-  if (asp) extra = { holes: Pp.holes.map((h, j) => hg[j].sealed ? 0.96 : Math.min(0.9, hg[j].sheath / (0.5 * h.dia / 1000))), end: cc ? Math.min(0.9, arrMean(cc) / ri) : 0 };
+  if (asp) extra = { holes: Pp.holes.map((h, j) => hg[j].sealed ? 0.99 : Math.min(0.9, hg[j].sheath / (0.5 * h.dia / 1000))), end: cc ? Math.min(0.9, arrMean(cc) / ri) : 0 };
   m.sealed = hg.filter(x => x.sealed).length;
   const net = holeNetwork(Pp, ri, cs ? cs.end : 0, extra); m.net = net; m.extra = extra;
   const inf = INFUSATES[Pp.infusate], Hb = Pp.hct / 3;
@@ -910,7 +970,7 @@ function evaluate(Pp, opt) {
     hemo += J.HI / 100 * J.Qent * 3600 * 1e4 * Hb * 1000 / 50;
     plt += J.PAS / 100 * J.Qent * 3600 / 5e-3 * 100;
   }
-  if (asp && net.Qin > 0) {
+  if ((asp || Pp.infusate === 'blood') && net.Qin > 0) {
     const Al = Math.PI * ri * ri, Vl = net.Qin / Al, Rel = RHO_B * Vl * 2 * ri / muInf;
     const tauL = Rel < 2300 ? muInf * 8 * Vl / (2 * ri) : 0.316 * Math.pow(Rel, -0.25) / 8 * RHO_B * Vl * Vl;
     const gl = giersiepen(Math.min(2, (Pp.len / 100) / Vl), tauL);
@@ -925,7 +985,7 @@ function evaluate(Pp, opt) {
   m.hubP = Pp.Pv * MMHG + (asp ? -1 : 1) * net.dpHub;
   m.dilution = asp ? 0 : net.Qin / (net.Qin + Qc);
   m.drawShare = asp ? net.Qin / Qc : 0;
-  m.Qdown = asp ? Math.max(Qc - net.Qin, 0) : Qc + net.Qin;
+  m.Qdown = Pp.balanced ? Qc : asp ? Math.max(Qc - net.Qin, 0) : Qc + net.Qin;
   m.downG = w0.g * m.Qdown / Q0; m.downTau = visc(m.downG, hf, newt) * m.downG;
   m.tipG = 0.25 * m.cathGmean; m.endG = m.tipG;
   m.endWash = net.end.v / (net.end.v + V_WASH);
@@ -955,13 +1015,108 @@ function evaluate(Pp, opt) {
   return m;
 }
 
+/* ================= dual-lumen dialysis ================= */
+// The catheter is a double-D: the top half (hole angles 270-90 deg) is the arterial (draw) lumen and the bottom half
+// the venous (return) lumen. Each lumen is solved as its own network; the cross-section flow is shared.
+const DL_SEPT = 0.15;                                                    // mm septum
+const isArtHole = h => { const a = ((h.ang % 360) + 360) % 360; return a < 90 || a > 270; };
+function dLumen(Pp) {
+  const rb = Pp.fr / 6 - Pp.wallT;                                        // mm bore radius
+  return { rb, ri: Math.max(0.03, rb * (0.6597 - 0.258 * DL_SEPT / Math.max(rb, 1e-6))) / 1000, area: Math.max(0, Math.PI * rb * rb / 2 - rb * DL_SEPT) };
+}
+// Access recirculation, summed over pairs of (returning opening, drawing opening). Calibrated on 3D lattice-Boltzmann
+// runs of neonatal tips (7 Fr in a 6 mm SVC, laminar; 46 steady cases, RMS error 1.3 points). In laminar flow returned
+// blood stays in a thin streak on its own side of the catheter: a draw opening at the catheter's terminus collects the
+// wake from all around, one part-way along (step face, side hole) only from its own half; blood returned downstream
+// of a draw opening does not come back in steady flow, but is carried back during A-wave backflow.
+const RCP = { Rinf: 0.159, a: 0.45, lam: 2.5, X: 0.1175, lamF: 0.7, Rflush: 0.205, lamN: 0.5, gamma: 1.8, eSide: 0.011, Rsym: 0.0002, phiRev: 0.1, fNum: 1.15, kPos: 1.3 };
+function recirculation(g) {
+  const p = RCP, Qb = g.Qb; if (!(Qb > 0)) return 0;
+  const capRev = s => p.Rinf * (1 - p.a * Math.exp(-s / p.lam)) + p.X * Math.exp(-s / p.lamF);
+  const capNor = s => p.Rflush * Math.exp(-s / p.lamN);
+  const fpos = clamp(1 + p.kPos * (Math.abs(g.ecc) - 0.3), 0.75, 2), ffr = Math.min(1, Math.pow(g.fr / 7, 1.5));
+  const dxRev = g.revFrac > 0 ? g.revFrac / (1 - Math.min(0.9, g.revFrac)) * g.U * g.T : 0;     // mm carried back per beat
+  let R = 0;
+  for (const d of g.draw) {
+    if (!(d.q > 0)) continue;
+    const wd = d.q / Qb, eff = d.terminus ? Math.pow(Math.min(1, wd), p.gamma - 1) : 1;
+    for (const r of g.ret) {
+      if (!(r.q > 0)) continue;
+      const E = d.terminus || d.half === r.half ? 1 : p.eSide;
+      let c;
+      if (g.tip === 'symmetric' && d.terminus && r.terminus) c = p.Rsym;
+      else if (r.x >= d.x) c = capRev(r.x - d.x);
+      else { const sd = d.x - r.x; c = capNor(sd); if (dxRev > sd) c += p.phiRev * capRev(sd) * (1 - sd / dxRev); }
+      R += (r.q / Qb) * wd * eff * E * c;
+    }
+  }
+  R *= fpos * ffr * p.fNum;
+  return clamp(Math.max(R, Math.max(0, Qb - g.Qv) / Qb), 0, 1);
+}
+const DL_EXT = fr => fr <= 9 ? 0.15 : 0.3;                                // hub + extension leg volume per lumen, mL
+const holeOffDeg = h => { const a = ((h.ang % 360) + 360) % 360; return isArtHole(h) ? (a > 180 ? a - 360 : a) : a - 180; };
+// largest hole that stays clear of the septum at an angular offset (deg) from its lumen's centre line
+function maxHoleDia(fr, offDeg) {
+  const a0 = fr / 6, free = (90 - Math.abs(offDeg)) * Math.PI / 180 - Math.asin(Math.min(1, DL_SEPT / 2 / a0));
+  return Math.max(0.05, 2 * a0 * Math.sin(Math.max(0, free)) * 0.9);
+}
+function evaluateDialysis(Pp, opt) {
+  const rev = Pp.lines === 'reversed', step = Pp.tip === 'step', off = step ? Math.min(Pp.offset, Pp.len * 10 - 2) : 0;
+  const dl = dLumen(Pp), lenA = Math.max(0.5, Pp.len - off / 10);
+  const live = h => isArtHole(h) ? h.dist > off + 0.3 : true;               // arterial holes past the step have no lumen behind them
+  const capDia = h => Math.min(h.dia, maxHoleDia(Pp.fr, holeOffDeg(h)));
+  // each lumen gets only its own holes (the other lumen's are closed), each solved as its own network
+  const art = Object.assign({}, Pp, { mode: rev ? 'infuse' : 'aspirate', inf: Pp.qb, infusate: 'blood', endHole: true, endDia: null, riEff: dl.ri, len: lenA, balanced: true,
+    holes: Pp.holes.map(h => isArtHole(h) && live(h) ? Object.assign({}, h, { dist: h.dist - off, dia: capDia(h) }) : Object.assign({}, h, { occ: 1 })) });
+  const ven = Object.assign({}, Pp, { mode: rev ? 'aspirate' : 'infuse', inf: Pp.qb, infusate: 'blood', endHole: true, endDia: null, riEff: dl.ri, balanced: true,
+    holes: Pp.holes.map(h => !isArtHole(h) ? Object.assign({}, h, { dia: capDia(h) }) : Object.assign({}, h, { occ: 1 })) });
+  const cA = opt.cache.dlArt || (opt.cache.dlArt = {}), cV = opt.cache.dlVen || (opt.cache.dlVen = {});
+  const mA = evaluate(art, Object.assign({}, opt, { cache: cA })), mV = evaluate(ven, Object.assign({}, opt, { cache: cV }));
+  const draw = rev ? mV : mA, ret = rev ? mA : mV;
+  // merged view: geometry and flow field from the return-lumen solve, per-hole results from whichever lumen owns the hole
+  const m = Object.assign({}, ret);
+  m.dialysis = true; m.asp = false; m.dl = { art: mA, ven: mV, draw, ret, rev, step, off, lumen: dl };
+  m.net = Object.assign({}, ret.net, { holes: Pp.holes.map((h, j) => (isArtHole(h) ? mA : mV).net.holes[j]) });
+  m.jets = Pp.holes.map((h, j) => (isArtHole(h) ? mA : mV).jets[j]);
+  m.holeWash = Pp.holes.map((h, j) => (isArtHole(h) ? mA : mV).holeWash[j]);
+  m.holeG = mV.holeG;
+  // blood damage per unit of this patient's blood volume (the single-lumen model assumes a 5 L adult)
+  const bv = Math.max(0.2, Pp.wt) * (Pp.wt < 10 ? 82 : 70), vs = 5000 / bv;
+  m.hemo = (mA.hemo + mV.hemo) * vs; m.plt = (mA.plt + mV.plt) * vs; m.dl.bloodVol = bv;
+  m.sealed = draw.sealed; m.risk = (mA.risk + mV.risk) / 2; m.virchow = mA.risk > mV.risk ? mA.virchow : mV.virchow;
+  m.tauImpMax = ret.tauImpMax; m.jetVmax = ret.jetVmax; m.endJet = ret.endJet;
+  // openings for the recirculation model: x = mm proximal of the catheter terminus
+  const ops = (mm, isArt) => {
+    const out = [{ x: isArt ? off : 0, q: mm.net.end.q * 6e7, half: isArt ? 'art' : 'ven', terminus: isArt ? !step : true }];
+    Pp.holes.forEach((h, j) => { if (isArtHole(h) === isArt && live(h)) out.push({ x: h.dist, q: mm.net.holes[j].q * 6e7, half: isArt ? 'art' : 'ven', terminus: false }); });
+    return out;
+  };
+  const opA = ops(mA, true), opV = ops(mV, false);
+  const Aann = Math.PI * (Pp.D * Pp.D - (Pp.fr / 3) ** 2) / 4, U = ret.Qc * 6e7 / 60 * 1000 / Aann;
+  const revFrac = Pp.revFrac !== undefined ? Pp.revFrac : 0.05;
+  const g = { tip: Pp.tip, fr: Pp.fr, ecc: Pp.ecc, Qv: ret.Qc * 6e7, Qb: Pp.qb, U, T: 60 / Pp.hr, revFrac };
+  m.dl.R = recirculation(Object.assign({ draw: rev ? opV : opA, ret: rev ? opA : opV }, g));
+  m.dl.Ralt = recirculation(Object.assign({ draw: rev ? opA : opV, ret: rev ? opV : opA }, g));   // the other line connection (same flow split)
+  const cen = o => { const q = o.reduce((s2, x) => s2 + x.q, 0); return q > 0 ? o.reduce((s2, x) => s2 + x.q * x.x, 0) / q : 0; };
+  m.dl.sep = rev ? cen(opV) - cen(opA) : cen(opA) - cen(opV);
+  m.dl.drawP = draw.hubP; m.dl.retP = ret.hubP; m.dl.revFrac = revFrac;
+  // lock: catheter lumen + hub/extension; instillation spill 20% + washout (7% with side holes, 1.5% without), 1000 U/mL
+  const ext = DL_EXT(Pp.fr), bodyV = dl.area * Pp.len * 10 / 1000, bodyA = dl.area * lenA * 10 / 1000;
+  const sideA = Pp.holes.some(h => isArtHole(h) && live(h)), sideV = Pp.holes.some(h => !isArtHole(h));
+  m.dl.lockMl = bodyV + ext;
+  m.dl.heparinUkg = ((0.20 + (sideA ? 0.07 : 0.015)) * (bodyA + ext) + (0.20 + (sideV ? 0.07 : 0.015)) * (bodyV + ext)) * 1000 / Math.max(Pp.wt, 0.3);
+  m.dl.capped = Pp.holes.map(h => capDia(h) < h.dia - 1e-6); m.dl.effDia = Pp.holes.map(capDia);
+  return m;
+}
+function evalAny(Pp, opt) { return Pp.mode === 'dialysis' ? evaluateDialysis(Pp, opt) : evaluate(Pp, opt); }
+
 /* ================= scheduling of the steady analysis ================= */
 let saTimer = null, saPending = false;
 function requestSA(delay) { saPending = true; clearTimeout(saTimer); saTimer = setTimeout(runSA, delay === undefined ? 50 : delay); }
 function runSA() {
   saPending = false;
   const holesSel = V.selected;
-  SA = evaluate(P, { N: N_SA, cache: saCache, clot: CL });
+  SA = evalAny(P, { N: N_SA, cache: saCache, clot: CL });
   lastRates = clotRates(SA, P, { cath: CL.cath, wall: CL.wall, down: CL.down, holes: P.holes.map(h => h.occ || 0), end: CL.end });
   CL.proj = project(SA, P);
   syncLive();
@@ -1061,7 +1216,7 @@ function downPos(r0, th, x) {
 function localU(x, y, z) {
   if (x <= 0) return LV.main.sampleU(y, z);
   const b = blendB(x);
-  const sc = Math.abs(LV.Qt) > 1e-12 ? clamp((LV.Qm + (SA.asp ? -1 : 1) * SA.net.Qin) / LV.Qt, 0, 3) : 1;
+  const sc = Math.abs(LV.Qt) > 1e-12 ? clamp((LV.Qm + (SA.dialysis ? 0 : (SA.asp ? -1 : 1) * SA.net.Qin)) / LV.Qt, 0, 3) : 1;
   return (1 - b) * LV.main.sampleU(y, z) + b * LV.twin.sampleU(y, z) * sc;
 }
 function localG(x, y, z) {
@@ -1092,42 +1247,65 @@ function stepParticles(dtp, dtReal) {
   if (net.Qin > 0) {
     const base = 210 * clamp(Math.log10(P.inf * 10 + 1) / Math.log10(3001), 0.18, 1);
     const outlets = [];
-    P.holes.forEach((h, j) => { if (net.holes[j].q > 0) outlets.push(['h' + h.id, net.holes[j].q / net.Qin, j]); });
+    P.holes.forEach((h, j) => { if (net.holes[j] && net.holes[j].q > 0) outlets.push(['h' + h.id, net.holes[j].q / net.Qin, j]); });
     if (net.end.q > 0) outlets.push(['end', net.end.q / net.Qin, -1]);
+    if (SA.dialysis && SA.dl.draw.net.end.q > 0) outlets.push(['dend', SA.dl.draw.net.end.q / net.Qin, -3]);
     for (const [key, frac, j] of outlets) {
+      const inlet = SA.dialysis ? (j === -3 || (j >= 0 && isArtHole(P.holes[j]) !== SA.dl.rev)) : SA.asp;
       let acc = (emitAcc.get(key) || 0) + base * frac * dtReal;
-      while (acc >= 1 && JP.length < 1600) { acc -= 1; if (SA.asp) spawnInlet(j); else spawnJet(j); }
+      while (acc >= 1 && JP.length < 1600) { acc -= 1; if (inlet) spawnInlet(j); else spawnJet(j); }
       if (acc > 5) acc = 0;
       emitAcc.set(key, acc);
-      if (SA.asp) {
+      if (SA.asp && !SA.dialysis) {
         let la = (emitAcc.get('L' + key) || 0) + 45 * frac * dtReal;
         while (la >= 1 && LP.length < 260) { la -= 1; const rr = Math.sqrt(Math.random()) * SA.ri * 0.92, a = Math.random() * TAU; LP.push({ x: j >= 0 ? -P.holes[j].dist / 1000 : -1e-5, ly: rr * Math.cos(a), lz: rr * Math.sin(a) }); }
         emitAcc.set('L' + key, la);
       }
     }
-    if (!SA.asp) {
+    if (!SA.asp && !SA.dialysis) {
       let lacc = (emitAcc.get('lumen') || 0) + 40 * dtReal;
       while (lacc >= 1 && LP.length < 220) { lacc -= 1; const rr = Math.sqrt(Math.random()) * SA.ri * 0.92, a = Math.random() * TAU; LP.push({ x: xl, ly: rr * Math.cos(a), lz: rr * Math.sin(a) }); }
       emitAcc.set('lumen', lacc);
     }
   }
   for (let i = JP.length - 1; i >= 0; i--) { if (!updateJet(JP[i], dtp, dtReal)) JP.splice(i, 1); }
-  updateLumen(dtp);
+  if (!SA.dialysis) updateLumen(dtp);
 }
 function spawnJet(j) {
   const R = SA.R, a = SA.a0, e = SA.e;
   if (j >= 0) {
     const h = P.holes[j], J = SA.jets[j];
     if (!J || !h) return;
-    JP.push({ kind: 0, hid: h.id, j, x0: -h.dist / 1000, xi: 0, t: 0, real: 0, th: J.th, v0: J.v, d: J.d, gap: J.gap, sa: randn(), sx: randn(), passive: false, x: -h.dist / 1000, y: J.Sy, z: J.Sz, hit: false, life: 2.2 + Math.random() * 1.2 });
+    JP.push({ kind: 0, hid: h.id, j, x0: -h.dist / 1000, xi: 0, t: 0, real: 0, th: J.th, v0: J.v, d: J.d, gap: J.gap, sa: randn(), sx: randn(), passive: false, x: -h.dist / 1000, y: J.Sy, z: J.Sz, hit: false, life: 2.2 + Math.random() * 1.2, ret: SA.dialysis });
   } else {
     const rr = Math.sqrt(Math.random()) * SA.net.end.r * 0.9, an = Math.random() * TAU;
-    JP.push({ kind: 1, s: 0, t: 0, real: 0, v0: SA.net.end.v, d: 2 * SA.net.end.r, ly: rr * Math.cos(an), lz: rr * Math.sin(an), sr: randn(), passive: false, x: 0, y: e + rr * Math.cos(an), z: rr * Math.sin(an), life: 2.2 + Math.random() * 1.2 });
+    // dialysis: the return lumen's end opening sits in its own half, and at the step if the arterial lumen returns
+    const lane = SA.dialysis ? (SA.dl.rev ? 1 : -1) * a * 0.5 : 0, x0e = SA.dialysis && SA.dl.rev && SA.dl.step ? -SA.dl.off / 1000 : 0;
+    const ly = lane + rr * Math.cos(an) * (SA.dialysis ? 0.5 : 1);
+    JP.push({ kind: 1, s: 0, x0e, t: 0, real: 0, v0: SA.net.end.v, d: 2 * SA.net.end.r, ly, lz: rr * Math.sin(an), sr: randn(), passive: false, x: x0e, y: e + ly, z: rr * Math.sin(an), life: 2.2 + Math.random() * 1.2, ret: SA.dialysis });
   }
+}
+// capture spheres of the drawing lumen's openings (dialysis), used to show returned blood being drawn back in
+function drawCaptures(x, y, z) {
+  const dl = SA.dl; if (!dl) return false;
+  if (!dl.caps) {
+    dl.caps = [];
+    const artDraws = !dl.rev, J = dl.draw.endJet;
+    if (J && J.q > 0) dl.caps.push([artDraws && dl.step ? -dl.off / 1000 : 0, SA.e + (artDraws ? 1 : -1) * SA.a0 * 0.5, 0, Math.max(J.rc, J.d / 2)]);
+    P.holes.forEach((h, j) => { const Jh = SA.jets[j]; if (Jh && Jh.inlet && Jh.q > 0 && !Jh.sealed) dl.caps.push([-h.dist / 1000, Jh.Sy, Jh.Sz, Math.max(Jh.rc, Jh.d / 2)]); });
+  }
+  for (const [cx, cy, cz, r] of dl.caps) if ((x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 < r * r) return true;
+  return false;
 }
 function spawnInlet(j) {
   let H, n, J;
   if (j >= 0) { J = SA.jets[j]; const h = P.holes[j]; if (!J || !h || J.sealed || !(J.q > 0)) return; H = [-h.dist / 1000, J.Sy, J.Sz]; n = [0, Math.cos(J.th), Math.sin(J.th)]; }
+  else if (j === -3) {
+    // dialysis: the drawing lumen's end opening (at the step for the arterial lumen), in its own half
+    J = SA.dl.draw.endJet; if (!J || !(J.q > 0)) return;
+    const artDraws = !SA.dl.rev;
+    H = [artDraws && SA.dl.step ? -SA.dl.off / 1000 : 0, SA.e + (artDraws ? 1 : -1) * SA.a0 * 0.5, 0]; n = [1, 0, 0];
+  }
   else { J = SA.endJet; if (!J || !(J.q > 0)) return; H = [0, SA.e, 0]; n = [1, 0, 0]; }
   const rcap = Math.max(1.5 * J.rc, 3 * J.d), r0 = rcap * (0.45 + 0.8 * Math.random());
   for (let i = 0; i < 25; i++) {
@@ -1153,6 +1331,7 @@ function updateJet(p, dtp, dtReal) {
     return dist < 3 * p.rc;
   }
   if (p.passive) {
+    if (p.ret && SA.dialysis && drawCaptures(p.x, p.passive && p.py !== undefined ? p.py : p.y, p.passive && p.pz !== undefined ? p.pz : p.z)) return false;   // returned blood sucked back in
     let py = p.y, pz = p.z;
     if (p.x > 0) { if (p.r0 === undefined) { p.r0 = Math.hypot(p.y - SA.e, p.z); p.th0 = Math.atan2(p.z, p.y - SA.e); } [py, pz] = downPos(p.r0, p.th0, p.x); p.py = py; p.pz = pz; } else { p.py = py; p.pz = pz; }
     p.x += localU(p.x, py, pz) * dtp;
@@ -1180,12 +1359,12 @@ function updateJet(p, dtp, dtReal) {
     if ((vex < 1.5 * Uc && p.t > 5 * p.d / p.v0) || axi > 30 * rd || p.t > 3) { p.passive = true; }
     return true;
   } else {
-    const ub = localU(Math.max(p.s, 1e-6), SA.e + p.ly, p.lz);
+    const xx = (p.x0e || 0) + p.s, ub = localU(p.x0e ? xx : Math.max(xx, 1e-6), SA.e + p.ly, p.lz);
     const vex = p.v0 / (1 + p.s / (6.2 * p.d));
     p.s += (ub + vex) * dtp;
     const off = p.sr * (0.1 * p.s);
     const rr = Math.hypot(p.ly, p.lz) + Math.abs(off), an = Math.atan2(p.lz, p.ly);
-    p.x = p.s; p.y = SA.e + rr * Math.cos(an); p.z = rr * Math.sin(an);
+    p.x = (p.x0e || 0) + p.s; p.y = SA.e + rr * Math.cos(an); p.z = rr * Math.sin(an);
     if (vex < 0.3 * Math.max(Math.abs(ub), 1e-4) || p.t > 3) { p.passive = true; }
     return true;
   }
@@ -1255,6 +1434,8 @@ const SPR_WBC = makeSprite(64, (g, s) => {
 const SPR_INF = makeSprite(32, (g, s) => { const r = s / 2; const grd = g.createRadialGradient(r, r, 0, r, r, r); grd.addColorStop(0, 'rgba(225,246,255,1)'); grd.addColorStop(0.35, 'rgba(120,205,255,0.85)'); grd.addColorStop(1, 'rgba(40,140,230,0)'); g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill(); });
 const SPR_ASP = makeSprite(32, (g, s) => { const r = s / 2; const grd = g.createRadialGradient(r, r, 0, r, r, r); grd.addColorStop(0, 'rgba(255,246,220,1)'); grd.addColorStop(0.35, 'rgba(255,170,90,0.9)'); grd.addColorStop(1, 'rgba(255,100,40,0)'); g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill(); });
 const SPR_BLD = makeSprite(32, (g, s) => { const r = s / 2; const grd = g.createRadialGradient(r, r, 0, r, r, r); grd.addColorStop(0, 'rgba(255,170,170,1)'); grd.addColorStop(0.4, 'rgba(230,80,90,0.85)'); grd.addColorStop(1, 'rgba(160,20,30,0)'); g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill(); });
+// returned (dialysed) blood in dialysis mode
+const SPR_RET = makeSprite(32, (g, s) => { const r = s / 2; const grd = g.createRadialGradient(r, r, 0, r, r, r); grd.addColorStop(0, 'rgba(246,226,255,1)'); grd.addColorStop(0.4, 'rgba(190,130,255,0.9)'); grd.addColorStop(1, 'rgba(120,60,220,0)'); g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, TAU); g.fill(); });
 
 /* colormaps */
 const CMAPS = {
@@ -1418,9 +1599,12 @@ function drawCatheter() {
     ctx.save();
     ctx.beginPath();
     const ya = Y(e + a + sTop), yb = Y(e - a - sBot);
+    // a step-tip dialysis catheter: the sheath follows the shorter arterial half, then the venous half to the tip
+    const xs = SA.dialysis && SA.dl.step ? X(-SA.dl.off / 1000) : xt;
     ctx.moveTo(-5, ya);
-    for (let px = -5; px <= xt; px += 4) { const xw = V.viewX0 + px / kx; ctx.lineTo(px, Y(e + a + sTop * (1 + 0.25 * noise1(xw * 3000)))); }
-    ctx.ellipse(xt, (ya + yb) / 2, capW + sMean * kx * 1.4, (yb - ya) / 2, 0, -Math.PI / 2, Math.PI / 2);
+    for (let px = -5; px <= xs; px += 4) { const xw = V.viewX0 + px / kx; ctx.lineTo(px, Y(e + a + sTop * (1 + 0.25 * noise1(xw * 3000)))); }
+    if (xs < xt) { ctx.quadraticCurveTo(xs + capW + sMean * kx, ya, xs + capW + sMean * kx, Y(e + sMean)); ctx.lineTo(xt, Y(e + sMean)); }
+    ctx.ellipse(xt, xs < xt ? (Y(e + sMean) + yb) / 2 : (ya + yb) / 2, capW + sMean * kx * 1.4, xs < xt ? (yb - Y(e + sMean)) / 2 : (yb - ya) / 2, 0, -Math.PI / 2, Math.PI / 2);
     for (let px = xt; px >= -5; px -= 4) { const xw = V.viewX0 + px / kx; ctx.lineTo(px, Y(e - a - sBot * (1 + 0.25 * noise1(xw * 3100 + 2)))); }
     ctx.closePath();
     ctx.fillStyle = 'rgba(232,214,178,0.78)'; ctx.fill();
@@ -1428,6 +1612,7 @@ function drawCatheter() {
     ctx.restore();
   }
   const tint = MATERIALS[P.mat].tint;
+  if (SA.dialysis) { drawCatheterDL(tint); P.holes.forEach((h, j) => drawHole(h, j)); flushHoleLabels(); return; }
   // body
   ctx.save();
   ctx.beginPath();
@@ -1454,7 +1639,7 @@ function drawCatheter() {
     lgr.addColorStop(1, infusing ? 'rgba(50,100,150,0.6)' : 'rgba(60,30,40,0.55)');
   }
   ctx.fillStyle = lgr;
-  const lumEnd = P.endHole ? xt + capW * 0.98 : xt - Math.max(2, capW * 0.15);
+  const lumEnd = P.endHole ? xt + capW * 0.98 * Math.sqrt(Math.max(0, 1 - (ri / a) ** 2)) : xt - Math.max(2, capW * 0.15);
   ctx.fillRect(-5, yl1, lumEnd + 5, yl2 - yl1);
   ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.moveTo(-5, yl1); ctx.lineTo(lumEnd, yl1); ctx.moveTo(-5, yl2); ctx.lineTo(lumEnd, yl2); ctx.stroke();
   if (P.endHole && CL.end > 0.02) { ctx.fillStyle = `rgba(90,20,14,${0.4 + 0.6 * CL.end})`; ctx.fillRect(xt + capW * 0.98 - capW * 1.4 * CL.end, yl1, capW * 1.4 * CL.end, yl2 - yl1); }
@@ -1471,6 +1656,77 @@ function drawCatheter() {
   // holes
   P.holes.forEach((h, j) => drawHole(h, j));
   flushHoleLabels();
+}
+// Dual-lumen body: top half = arterial lumen, bottom half = venous lumen, septum between them.
+function drawCatheterDL(tint) {
+  const k = view.k, kx = view.kx, e = SA.e, a = SA.a0, dl = SA.dl, xt = X(0);
+  const rb = dl.lumen.rb / 1000, hs = DL_SEPT / 2000, sym = P.tip === 'symmetric';
+  const xa = dl.step ? X(-dl.off / 1000) : xt;                         // where the arterial half ends
+  const cw = Math.max(a * kx * 0.9, 4), [tr, tg, tb] = tint;
+  const grad = (y0, y1) => { const gr = ctx.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, `rgba(${tr * 0.6},${tg * 0.64},${tb * 0.7},0.93)`); gr.addColorStop(0.45, `rgba(${tr},${tg},${tb},0.9)`); gr.addColorStop(1, `rgba(${tr * 0.55},${tg * 0.6},${tb * 0.66},0.93)`); return gr; };
+  const halfPath = (top, xEnd) => {
+    const yo = Y(e + (top ? a : -a)), yi = Y(e);
+    ctx.beginPath(); ctx.moveTo(-5, yi); ctx.lineTo(-5, yo);
+    if (sym) { ctx.lineTo(xEnd - cw * 1.6, yo); ctx.lineTo(xEnd, yi); }          // symmetric tip: each lumen cut on a slant, opening sideways
+    else { ctx.lineTo(xEnd - cw, yo); ctx.quadraticCurveTo(xEnd, yo, xEnd, yi); }
+    ctx.closePath();
+  };
+  const half = (top, xEnd) => {
+    const yo = Y(e + (top ? a : -a)), yi = Y(e);
+    halfPath(top, xEnd); ctx.fillStyle = grad(top ? yo : yi, top ? yi : yo); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,60,80,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+  };
+  half(true, xa); half(false, xt);
+  if (sym) {                                                                  // septum carries on past the openings
+    const xe = X(2.5e-3), th = Math.max(1.5, 2 * hs * k);
+    ctx.fillStyle = `rgba(${tr},${tg},${tb},0.95)`; ctx.fillRect(xt - 1, Y(e) - th / 2, xe - xt + 1, th);
+  }
+  // lumens: the drawing lumen carries dark venous blood toward the hub, the returning lumen dialysed blood toward the tip
+  const drawTop = !dl.rev, sp = Math.max(P.qb, 0) / 6e7 / Math.max(dl.lumen.area * 1e-6, 1e-9);   // mean lumen speed, m/s
+  const shift = (LV.t * sp * kx) % 18;
+  for (const top of [true, false]) {
+    // symmetric tip: the lumen runs right out to its slanted cut, so the opening shows as a window on the slant
+    const yA = Y(e + (top ? rb : hs)), yB = Y(e + (top ? hs : -rb)), xEnd = (top ? xa : xt) - (sym ? 0 : cw * 0.55);
+    const drawing = top === drawTop;
+    ctx.save();
+    if (sym) { halfPath(top, xt); ctx.clip(); }
+    const lg = ctx.createLinearGradient(0, yA, 0, yB);
+    if (drawing) { lg.addColorStop(0, 'rgba(105,14,26,0.88)'); lg.addColorStop(0.5, 'rgba(140,24,36,0.82)'); lg.addColorStop(1, 'rgba(95,12,22,0.88)'); }
+    else { lg.addColorStop(0, 'rgba(110,40,120,0.85)'); lg.addColorStop(0.5, 'rgba(150,70,170,0.8)'); lg.addColorStop(1, 'rgba(100,34,110,0.85)'); }
+    ctx.fillStyle = lg; ctx.fillRect(-5, yA, xEnd + 5, yB - yA);
+    if (P.qb > 0) {
+      ctx.save(); ctx.beginPath(); ctx.rect(-5, yA, xEnd + 5, yB - yA); ctx.clip();
+      ctx.strokeStyle = drawing ? 'rgba(255,150,140,0.55)' : 'rgba(230,190,255,0.55)'; ctx.lineWidth = Math.max(1, (yB - yA) * 0.18);
+      ctx.setLineDash([6, 12]); ctx.lineDashOffset = drawing ? shift : -shift;
+      ctx.beginPath(); ctx.moveTo(-5, (yA + yB) / 2); ctx.lineTo(xEnd, (yA + yB) / 2); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    }
+    ctx.restore();
+    if (sym) {                                                                // bright rim along each slanted opening
+      const yo = Y(e + (top ? a : -a)), yr = Y(e + (top ? rb : -rb));
+      const f = (yr - Y(e)) / (yo - Y(e));
+      ctx.strokeStyle = drawing ? 'rgba(255,170,160,0.85)' : 'rgba(235,200,255,0.85)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(xt - cw * 1.6 * f, yr); ctx.lineTo(xt - 1, Y(e + (top ? hs : -hs))); ctx.stroke();
+    }
+  }
+  // septum and highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = Math.max(1, 2 * hs * k);
+  ctx.beginPath(); ctx.moveTo(-5, Y(e)); ctx.lineTo(xt - (sym ? 0 : 2), Y(e)); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = Math.max(1, a * k * 0.07);
+  ctx.beginPath(); ctx.moveTo(-5, Y(e + a * 0.8)); ctx.lineTo(xa - cw * (sym ? 1.35 : 0.6), Y(e + a * 0.8)); ctx.stroke();
+  if (V.labels && view.W > 500) {
+    ctx.save(); ctx.font = '600 10px "IBM Plex Mono", monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    const PX = 60;                                                           // right of the velocity-profile overlay
+    const pill = (txt, y, top) => {
+      const w = ctx.measureText(txt).width + 10, end = (top ? xa : xt) - cw * (sym ? 2.2 : 1) - 8;
+      let rx = end; if (rx - w < PX) rx = PX + w;                             // slide right past the overlay
+      if (rx > end + 0.5) return;                                              // no room in this lumen
+      if (P.holes.some(h => isArtHole(h) === top && Math.sin(h.ang * Math.PI / 180) >= 0 && Math.abs(X(-h.dist / 1000) - (rx - w / 2)) < w / 2 + 8)) return;
+      ctx.fillStyle = 'rgba(12,6,10,0.6)'; roundRect(ctx, rx - w, y - 7, w, 14, 5); ctx.fill();
+      ctx.fillStyle = 'rgba(244,236,238,0.95)'; ctx.fillText(txt, rx - 5, y + 0.5);
+    };
+    if ((rb - hs) * k > 9) { pill(drawTop ? 'arterial · to machine' : 'arterial · returning', Y(e + (rb + hs) / 2), true); pill(drawTop ? 'venous · returning' : 'venous · to machine', Y(e - (rb + hs) / 2), false); }
+    ctx.restore();
+  }
 }
 function holeScreen(h) {
   const th = h.ang * Math.PI / 180, e = SA.e, a = SA.a0;
@@ -1495,15 +1751,18 @@ function flushHoleLabels() {
 function drawHole(h, j) {
   const k = view.k, kx = view.kx, hs = holeScreen(h);
   if (hs.x < -20 || hs.x > view.W + 20) return;
-  const rx = Math.max(1.6, h.dia / 2000 * kx), ry = Math.max(1.2, h.dia / 2000 * k * Math.max(Math.abs(hs.s), 0.18));
+  const dDraw = SA.dialysis && SA.dl.effDia ? SA.dl.effDia[j] : h.dia;      // septum-capped size in dialysis mode
+  const rx = Math.max(1.6, dDraw / 2000 * kx), ry = Math.max(1.2, dDraw / 2000 * k * Math.max(Math.abs(hs.s), 0.18));
   const net = SA.net.holes[j] || { v: 0 };
   const sel = V.selected === h.id;
+  const drawingHole = SA.dialysis ? isArtHole(h) !== SA.dl.rev : SA.asp, retHole = SA.dialysis && !drawingHole;
+  const dead = SA.dialysis && SA.dl.step && isArtHole(h) && h.dist <= SA.dl.off + 0.3;   // past the step: no arterial wall there
   ctx.save();
   if (hs.front) {
     ctx.beginPath(); ctx.ellipse(hs.x, hs.y, rx, ry, 0, 0, TAU);
     const flow = clamp(net.v / 0.5, 0, 1);
-    ctx.fillStyle = SA.asp ? `rgba(${60 + 170 * flow},${14 + 40 * flow},${22 + 30 * flow},0.95)` : `rgba(${20 + 60 * flow},${40 + 120 * flow},${70 + 150 * flow},0.95)`; ctx.fill();
-    if (SA.asp && SA.jets[j] && SA.jets[j].sealed) { ctx.strokeStyle = 'rgba(255,90,120,0.95)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(hs.x - rx, hs.y - ry); ctx.lineTo(hs.x + rx, hs.y + ry); ctx.moveTo(hs.x + rx, hs.y - ry); ctx.lineTo(hs.x - rx, hs.y + ry); ctx.stroke(); }
+    ctx.fillStyle = dead ? 'rgba(120,120,130,0.6)' : drawingHole ? `rgba(${60 + 170 * flow},${14 + 40 * flow},${22 + 30 * flow},0.95)` : retHole ? `rgba(${80 + 120 * flow},${30 + 50 * flow},${100 + 140 * flow},0.95)` : `rgba(${20 + 60 * flow},${40 + 120 * flow},${70 + 150 * flow},0.95)`; ctx.fill();
+    if (drawingHole && SA.jets[j] && SA.jets[j].sealed) { ctx.strokeStyle = 'rgba(255,90,120,0.95)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(hs.x - rx, hs.y - ry); ctx.lineTo(hs.x + rx, hs.y + ry); ctx.moveTo(hs.x + rx, hs.y - ry); ctx.lineTo(hs.x - rx, hs.y + ry); ctx.stroke(); }
     if ((h.occ || 0) > 0.02) { ctx.beginPath(); ctx.ellipse(hs.x, hs.y, rx * Math.sqrt(h.occ), ry * Math.sqrt(h.occ), 0, 0, TAU); ctx.fillStyle = '#6a1a12'; ctx.fill(); }
     ctx.strokeStyle = sel ? '#ffd166' : 'rgba(20,30,45,0.9)'; ctx.lineWidth = sel ? 2 : 1; ctx.beginPath(); ctx.ellipse(hs.x, hs.y, rx, ry, 0, 0, TAU); ctx.stroke();
   } else {
@@ -1513,8 +1772,8 @@ function drawHole(h, j) {
   if (sel) { ctx.strokeStyle = 'rgba(255,209,102,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hs.x, hs.y, Math.max(rx, ry) + 6, 0, TAU); ctx.stroke(); }
   if (V.labels) {
     const pct = SA.net.Qin > 0 ? (SA.net.holes[j].q / SA.net.Qin * 100) : 0;
-    const top = hs.c >= 0;
-    holeLabels.push({ x: hs.x, y: top ? Y(SA.e + SA.a0) - 9 : Y(SA.e - SA.a0) + 18, top, sel, text: `${j + 1}${hs.front ? '' : ' back'} · ${pct.toFixed(pct < 10 ? 1 : 0)}%` });
+    const top = SA.dialysis ? isArtHole(h) : hs.c >= 0;
+    holeLabels.push({ x: hs.x, y: top ? Y(SA.e + SA.a0) - 9 : Y(SA.e - SA.a0) + 18, top, sel, text: dead ? `${j + 1} past step` : SA.dialysis && SA.dl.capped[j] && SA.dl.effDia[j] < 0.15 ? `${isArtHole(h) ? 'A' : 'V'}${j + 1} on septum` : `${SA.dialysis ? (isArtHole(h) ? 'A' : 'V') : ''}${j + 1}${hs.front ? '' : ' back'} · ${pct.toFixed(pct < 10 ? 1 : 0)}%` });
   }
   ctx.restore();
 }
@@ -1535,7 +1794,7 @@ function drawJets(front) {
     if (p.kind === 2) { ctx.globalAlpha = clamp(0.95 * Math.min(1, p.real * 4) * depth, 0, 1); ctx.drawImage(SPR_ASP, px - 3.6, py - 3.6, 7.2, 7.2); continue; }
     const s = (p.passive ? 4.5 : 3.6) * (0.85 + 0.3 * depth);
     ctx.globalAlpha = clamp(fade * (p.passive ? 0.45 : 0.85) * depth, 0, 1);
-    ctx.drawImage(spr, px - s, py - s, 2 * s, 2 * s);
+    ctx.drawImage(p.ret ? SPR_RET : spr, px - s, py - s, 2 * s, 2 * s);
   }
   ctx.restore();
 }
@@ -1587,7 +1846,7 @@ function drawAnnotations() {
   // flow arrow + scale bar
   ctx.save();
   ctx.font = '600 11px "Public Sans", sans-serif'; ctx.fillStyle = 'rgba(255,230,232,0.85)'; ctx.textAlign = 'left';
-  const flowLab = W < 640 ? (SA.net.Qin > 0 ? (SA.asp ? `Flow →  withdrawing ${fmt(P.inf)} mL/min` : `Flow →  infusing ${fmt(P.inf)} mL/min`) : 'Flow →  locked') : (SA.net.Qin > 0 ? (SA.asp ? `Blood flow  →     Catheter withdrawing ${fmt(P.inf)} mL/min` : `Blood flow  →     Catheter infusing ${fmt(P.inf)} mL/min`) : 'Blood flow  →     Catheter locked');
+  const flowLab = SA.dialysis ? (W < 640 ? `Flow →  dialysis ${fmt(P.qb)} mL/min` : `Blood flow  →     Dialysis ${fmt(P.qb)} mL/min · recirculation ${fmtPct(SA.dl.R)}%`) : W < 640 ? (SA.net.Qin > 0 ? (SA.asp ? `Flow →  withdrawing ${fmt(P.inf)} mL/min` : `Flow →  infusing ${fmt(P.inf)} mL/min`) : 'Flow →  locked') : (SA.net.Qin > 0 ? (SA.asp ? `Blood flow  →     Catheter withdrawing ${fmt(P.inf)} mL/min` : `Blood flow  →     Catheter infusing ${fmt(P.inf)} mL/min`) : 'Blood flow  →     Catheter locked');
   ctx.fillText(flowLab, 14, Y(R) - Math.max(14, R * k * (P.vtype === 'artery' ? 0.24 : 0.1)) - 22 > 12 ? Y(R) - Math.max(14, R * k * (P.vtype === 'artery' ? 0.24 : 0.1)) - 22 : 16);
   const mmPx = view.kx / 1000; let barMm = 1; while (barMm * mmPx < 40) barMm *= barMm === 1 ? 2 : 2.5; while (barMm * mmPx > 160 && barMm > 0.1) barMm /= 2;
   const bx = W - 20 - barMm * mmPx, by = H - 16;
@@ -1634,7 +1893,15 @@ function renderView() {
     V.viewX0 = -tipFrac * view.W / view.kx;
   }
   view.lastW = view.W;
-  if (V.viewX0 === null) V.viewX0 = -0.7 * view.W / view.kx;
+  if (V.viewX0 === null) {
+    // frame the whole tip region: for a step tip keep the arterial opening clear of the profile overlay on the left,
+    // zooming out on narrow screens so the step and the tip both fit
+    if (SA.dialysis && SA.dl.step && SA.dl.off / 1000 * view.kx > 0.6 * view.W) {
+      V.zoom = Math.max(0.15, 0.6 * view.W / (SA.dl.off / 1000 * view.k)); view.kx = view.k * V.zoom; syncUI();
+    }
+    const tf = SA.dialysis && SA.dl.step ? Math.min(0.88, Math.max(0.7, 0.3 + SA.dl.off / 1000 * view.kx / view.W)) : 0.7;
+    V.viewX0 = -tf * view.W / view.kx;
+  }
   const gk = [R, Math.round(view.W), Math.round(view.H)].join('|');
   if (RB.n === 0 || view.gk !== gk) { view.gk = gk; resetParticles(); }
   drawBackground();
@@ -1658,7 +1925,7 @@ function drawHover() {
     const j = P.holes.indexOf(hole), n = SA.net.holes[j], J = SA.jets[j];
     lines.push(`Hole ${j + 1} · ${hole.dia.toFixed(2)} mm · ${hole.ang}°`);
     lines.push(`flow ${(n.q * 6e7).toFixed(3)} mL/min (${SA.net.Qin > 0 ? (n.q / SA.net.Qin * 100).toFixed(1) : 0}%)`);
-    lines.push(`${SA.asp ? 'inflow' : 'jet'} ${n.v.toFixed(3)} m/s · Re ${J ? J.Re.toFixed(0) : 0}`);
+    lines.push(`${(SA.dialysis ? isArtHole(hole) !== SA.dl.rev : SA.asp) ? 'inflow' : 'jet'} ${n.v.toFixed(3)} m/s · Re ${J ? J.Re.toFixed(0) : 0}`);
     if (J && J.impinge) lines.push(`hits wall: ${J.tauImp.toFixed(1)} Pa`);
     if (J && J.inlet && J.q > 0) lines.push(`capture radius ${(J.rc * 1000).toFixed(2)} mm`);
     if (J && J.sealed) lines.push('sealed against vessel wall');
@@ -1734,7 +2001,13 @@ function renderXS() {
   const cg = g.createRadialGradient(ecx - a * s * 0.35, ecy - a * s * 0.35, a * s * 0.1, ecx, ecy, a * s);
   cg.addColorStop(0, '#ffffff'); cg.addColorStop(1, `rgb(${tint[0] * 0.7},${tint[1] * 0.75},${tint[2] * 0.8})`);
   g.beginPath(); g.arc(ecx, ecy, a * s, 0, TAU); g.fillStyle = cg; g.fill(); g.strokeStyle = 'rgba(30,50,70,0.7)'; g.lineWidth = 1; g.stroke();
-  g.beginPath(); g.arc(ecx, ecy, SA.ri * s, 0, TAU); g.fillStyle = SA.net.Qin > 0 ? (SA.asp || P.infusate === 'blood' ? 'rgba(150,26,38,0.9)' : 'rgba(80,150,205,0.85)') : 'rgba(70,40,50,0.85)'; g.fill();
+  if (SA.dialysis) {
+    const rbs = SA.dl.lumen.rb / 1000 * s, hsp = Math.max(1, DL_SEPT / 2000 * s), drawTop = !SA.dl.rev;
+    for (const top of [true, false]) {
+      g.beginPath(); g.arc(ecx, ecy + (top ? -hsp : hsp), rbs, top ? Math.PI : 0, top ? TAU : Math.PI); g.closePath();
+      g.fillStyle = top === drawTop ? 'rgba(140,22,34,0.92)' : 'rgba(140,60,160,0.9)'; g.fill();
+    }
+  } else { g.beginPath(); g.arc(ecx, ecy, SA.ri * s, 0, TAU); g.fillStyle = SA.net.Qin > 0 ? (SA.asp || P.infusate === 'blood' ? 'rgba(150,26,38,0.9)' : 'rgba(80,150,205,0.85)') : 'rgba(70,40,50,0.85)'; g.fill(); }
   // holes and jets
   P.holes.forEach((hh, j) => {
     const J = SA.jets[j]; if (!J) return;
@@ -1789,6 +2062,7 @@ function hitHole(px, py) {
 }
 function onCatheter(px, py) {
   const xw = V.viewX0 + px / view.kx, yw = (view.cy - py) / view.k;
+  if (SA.dialysis && SA.dl.step && xw > -SA.dl.off / 1000 && yw > SA.e) return false;   // no arterial wall past the step
   return xw < -0.2e-3 && Math.abs(yw - SA.e) <= SA.a0 + 3 / view.k;
 }
 function angFromY(py, back) {
@@ -1915,13 +2189,24 @@ function syncUI() {
   $('endDia').max = idmm.toFixed(2); $('endDia').value = P.endDia ? Math.min(P.endDia, idmm) : idmm;
   $('oendDia').textContent = `${(P.endDia ? Math.min(P.endDia, idmm) : idmm).toFixed(2)} mm${P.endDia ? '' : ' (full lumen)'}`;
   $('infusate').value = P.infusate;
-  const asp = P.mode === 'aspirate';
-  $('modeOut').checked = !asp; $('modeIn').checked = asp;
+  const asp = P.mode === 'aspirate', dlm = P.mode === 'dialysis';
+  $('modeOut').checked = P.mode === 'infuse'; $('modeIn').checked = asp; $('modeDl').checked = dlm;
+  $('dlSec').hidden = !dlm; $('infSec').hidden = dlm; $('legRet').hidden = !dlm;
+  $('endHole').disabled = dlm; if (dlm) { $('endHole').checked = true; $('endDiaRow').hidden = true; }
+  $('dlTip').value = P.tip; $('dlOffRow').hidden = P.tip !== 'step';
+  if (typeof syncSweepOptions === 'function') syncSweepOptions();
+  $('dlOff').max = Math.max(5, Math.min(60, P.len * 10 - 5)).toFixed(0); $('dlOff').value = P.offset; $('odlOff').textContent = `${P.offset.toFixed(1)} mm`;
+  $('dlLines').value = P.lines;
+  $('dlRev').value = (P.revFrac * 100).toFixed(1); $('odlRev').textContent = `${fmt(P.revFrac * 100)}%`;
+  $('dlQb').value = logInv(Math.max(P.qb, 1), 1, 1000); $('odlQb').textContent = `${fmt(P.qb)} mL/min`;
+  $('dlQbNote').textContent = `${fmt(P.qb / P.wt)} mL/kg/min. Neonates are usually run at 5–10 mL/kg/min.`;
+  $('dlWt').value = logInv(P.wt, 0.5, 120); $('odlWt').textContent = `${fmt(P.wt)} kg`;
+  $('hemoModel').value = P.hemoModel; $('neo').checked = P.neo;
   $('infusateRow').hidden = asp;
   $('infLabel').textContent = asp ? 'Withdrawal rate' : 'Infusion rate';
   $('modeHint').textContent = asp ? 'Blood is drawn into the catheter through its holes, as in a blood draw or the withdrawal lumen of a dialysis catheter.' : 'Fluid leaves the catheter through its holes, as in an infusion or the return lumen of a dialysis catheter.';
-  $('legInf').lastChild.textContent = asp ? 'Blood drawn in' : 'Infusate';
-  $('legInf').firstChild.style.background = asp ? '#ffb070' : '#7fd0ff';
+  $('legInf').lastChild.textContent = asp || dlm ? 'Blood drawn in' : 'Infusate';
+  $('legInf').firstChild.style.background = asp || dlm ? '#ffb070' : '#7fd0ff';
   $('inf').value = P.inf <= 0 ? 0 : logInv(Math.max(P.inf, 0.01), 0.01, 300); $('oinf').textContent = P.inf <= 0 ? 'Off' : `${fmt(P.inf)} mL/min`;
   $('infNote').textContent = P.inf > 0 ? `${fmt(P.inf * 60)} mL/h · ${fmt(P.inf / 60)} mL/s` : 'Catheter locked. Nothing flows through it.';
   $('hct').value = P.hct; $('ohct').textContent = `${P.hct}%`;
@@ -1946,14 +2231,22 @@ bindRange('Q', v => P.Q = +logMap(v, 1, 5000).toPrecision(3));
 bindRange('hr', v => P.hr = v); bindRange('rr', v => P.rr = v); bindRange('Pv', v => P.Pv = v); bindRange('share', v => P.share = v);
 bindRange('fr', v => { P.fr = Math.min(v, P.D * 3 * 0.92); P.wallT = Math.min(P.wallT, P.fr / 6 - 0.05); });
 bindRange('wallT', v => { P.wallT = Math.min(v, P.fr / 6 - 0.05); });
-bindRange('len', v => P.len = v); bindRange('ecc', v => P.ecc = v);
+bindRange('len', v => { P.len = v; P.offset = Math.min(P.offset, Math.max(1, P.len * 10 - 5)); }); bindRange('ecc', v => P.ecc = v);
 bindRange('endDia', v => { const idmm = Math.max(0.08, P.fr / 3 - 2 * P.wallT); P.endDia = v >= idmm - 0.005 ? null : v; });
 bindRange('inf', v => P.inf = v < 3 ? 0 : +logMap(v, 0.01, 300).toPrecision(3));
 bindRange('hct', v => P.hct = v);
 for (const [id, key] of [['wave', 'wave'], ['vtype', 'vtype'], ['mat', 'mat'], ['infusate', 'infusate'], ['rheo', 'rheo'], ['coag', 'coag'], ['ac', 'ac']]) {
   $(id).addEventListener('change', () => { P[key] = $(id).value; if (id === 'vtype') bgKey = ''; syncUI(); requestSA(30); });
 }
-for (const id of ['modeOut', 'modeIn']) $(id).addEventListener('change', () => { if ($(id).checked) { P.mode = $(id).value; JP.length = 0; LP.length = 0; syncUI(); requestSA(0); toast(P.mode === 'aspirate' ? 'Blood now flows into the catheter' : 'Fluid now flows out of the catheter'); } });
+for (const id of ['modeOut', 'modeIn', 'modeDl']) $(id).addEventListener('change', () => { if ($(id).checked) { const was = P.mode; P.mode = $(id).value; if (P.mode === 'dialysis' && was !== 'dialysis') { preDL = { endHole: P.endHole, endDia: P.endDia, infusate: P.infusate }; P.endHole = true; P.infusate = 'blood'; } else if (was === 'dialysis' && P.mode !== 'dialysis' && preDL) { Object.assign(P, preDL); preDL = null; } JP.length = 0; LP.length = 0; syncUI(); requestSA(0); toast(P.mode === 'aspirate' ? 'Blood now flows into the catheter' : P.mode === 'dialysis' ? 'Dialysis: top lumen draws, bottom lumen returns' : 'Fluid now flows out of the catheter'); } });
+$('dlTip').addEventListener('change', () => { P.tip = $('dlTip').value; JP.length = 0; syncUI(); requestSA(30); });
+$('dlLines').addEventListener('change', () => { P.lines = $('dlLines').value; JP.length = 0; syncUI(); requestSA(30); toast(P.lines === 'reversed' ? 'Lines reversed: the venous lumen now draws' : 'Standard lines: the arterial lumen draws'); });
+bindRange('dlOff', v => P.offset = v);
+bindRange('dlQb', v => P.qb = +logMap(v, 1, 1000).toPrecision(2));
+bindRange('dlRev', v => P.revFrac = v / 100);
+bindRange('dlWt', v => P.wt = +logMap(v, 0.5, 120).toPrecision(2));
+$('hemoModel').addEventListener('change', () => { P.hemoModel = $('hemoModel').value; requestSA(30); });
+$('neo').addEventListener('change', () => { P.neo = $('neo').checked; requestSA(30); });
 $('endHole').addEventListener('change', () => { P.endHole = $('endHole').checked; syncUI(); requestSA(30); });
 $('preset').addEventListener('change', () => { loadPreset($('preset').value); HIST.n = 0; HIST.head = 0; LV.t = 0; syncUI(); bgKey = ''; requestSA(0); });
 $('overlay').addEventListener('change', () => V.overlay = $('overlay').value);
@@ -1990,6 +2283,27 @@ $('hDup').addEventListener('click', () => { const h = P.holes.find(q => q.id ===
 
 function changed(light) { updateHoleTable(); requestSA(light ? 120 : 30); }
 function equalize() {
+  if (SA && SA.dialysis) {
+    // equalize each lumen's side holes on that lumen's own network (the arterial lumen is measured from the step)
+    let n = 0;
+    for (const isArt of [true, false]) {
+      const off = SA.dl.step ? SA.dl.off : 0, own = P.holes.filter(h => isArtHole(h) === isArt && (!isArt || h.dist > off + 0.3));
+      if (own.length < 2 || !(P.qb > 0)) continue;
+      const drawing = isArt !== SA.dl.rev, ri = SA.dl.lumen.ri;
+      for (let it = 0; it < 60; it++) {
+        const Pp = Object.assign({}, P, { mode: drawing ? 'aspirate' : 'infuse', inf: P.qb, infusate: 'blood', endHole: true, endDia: null, len: isArt ? Math.max(0.5, P.len - off / 10) : P.len,
+          holes: own.map(h => Object.assign({}, h, { dist: isArt ? h.dist - off : h.dist })) });
+        const net = holeNetwork(Pp, ri, 0), qs = net.holes.map(x => x.q), mq = arrMean(qs);
+        if (mq <= 0) break;
+        let maxd = 0;
+        own.forEach((h, j) => { const f = Math.pow(mq / Math.max(qs[j], mq * 1e-3), 0.3); const nd = clamp(h.dia * f, 0.05, maxHoleDia(P.fr, holeOffDeg(h))); maxd = Math.max(maxd, Math.abs(nd - h.dia)); h.dia = +nd.toFixed(4); });
+        if (maxd < 1e-4) break;
+      }
+      n++;
+    }
+    if (!n) { toast('Equalizing needs two or more side holes on a lumen and dialysis flow'); return; }
+    changed(); toast('Hole sizes adjusted for equal flow in each lumen'); return;
+  }
   if (!SA || P.holes.length < 2 || P.inf <= 0) { toast('Equalizing needs two or more side holes and a running infusion'); return; }
   const ri = SA.ri, idmm = ri * 2000;
   for (let it = 0; it < 60; it++) {
@@ -2011,11 +2325,17 @@ function updateHoleTable() {
     const tr = document.createElement('tr'); if (V.selected === h.id) tr.className = 'sel';
     const q = net && net.holes[j] ? net.holes[j] : { q: 0, v: 0 };
     const share = net && net.Qin > 0 ? q.q / net.Qin * 100 : 0;
-    for (const t of [`${j + 1}`, h.dist.toFixed(1), `${h.ang}°`, h.dia.toFixed(2), `${share.toFixed(1)}%`, q.v.toFixed(3), `${((h.occ || 0) * 100).toFixed(0)}%`]) { const td = document.createElement('td'); td.textContent = t; tr.appendChild(td); }
+    for (const t of [SA && SA.dialysis ? `${j + 1} ${isArtHole(h) ? 'A' : 'V'}` : `${j + 1}`, h.dist.toFixed(1), `${h.ang}°`, SA && SA.dialysis && SA.dl.capped[j] ? `${h.dia.toFixed(2)}→${SA.dl.effDia[j].toFixed(2)}` : h.dia.toFixed(2), `${share.toFixed(1)}%`, q.v.toFixed(3), `${((h.occ || 0) * 100).toFixed(0)}%`]) { const td = document.createElement('td'); td.textContent = t; tr.appendChild(td); }
     tr.addEventListener('click', () => { V.selected = h.id; updateHoleTable(); });
     tb.appendChild(tr);
   });
-  if (P.endHole) {
+  if (SA && SA.dialysis) {
+    for (const [lab, mm, pos] of [['A end', SA.dl.art, SA.dl.step ? SA.dl.off : 0], ['V end', SA.dl.ven, 0]]) {
+      const tr = document.createElement('tr'), e = mm.net.end;
+      for (const t of [lab, pos.toFixed(1), 'axial', ((e.r0 || 0) * 2000).toFixed(2), `${(mm.net.Qin > 0 ? e.q / mm.net.Qin * 100 : 0).toFixed(1)}%`, (e.v || 0).toFixed(3), `${(CL.end * 100).toFixed(0)}%`]) { const td = document.createElement('td'); td.textContent = t; tr.appendChild(td); }
+      tb.appendChild(tr);
+    }
+  } else if (P.endHole) {
     const tr = document.createElement('tr');
     const e = net ? net.end : { q: 0, v: 0, r0: 0 };
     const share = net && net.Qin > 0 ? e.q / net.Qin * 100 : 0;
@@ -2042,6 +2362,8 @@ function fmt(v, s) {
   if (a >= 100) return Math.round(v).toString();
   return Number(v.toPrecision(s)).toString();
 }
+// percentages near zero: one decimal place, never scientific notation
+const fmtPct = f => { const v = f * 100; return v < 0.05 ? '0.0' : v < 10 ? v.toFixed(1) : v.toFixed(0); };
 function fmtH(h) { if (h === null) return 'not within 30 days'; if (h < 48) return `${h.toFixed(h < 10 ? 1 : 0)} h`; return `${(h / 24).toFixed(1)} days`; }
 const pill = (st, txt) => `<span class="pill ${st}">${txt}</span>`;
 function metricCards(m) {
@@ -2049,7 +2371,7 @@ function metricCards(m) {
   const flowSt = m.flowRed < 0.25 ? 'ok' : m.flowRed < 0.5 ? 'warn' : 'crit';
   cards.push(['Hemodynamics', [
     { k: 'Blood flow past catheter', v: `${fmt(m.Qc * 6e7)}<small>mL/min</small>`, s: `${(m.flowRed * 100).toFixed(0)}% below the ${fmt(m.Q0 * 6e7)} mL/min without catheter`, st: flowSt },
-    { k: 'Catheter-to-vessel ratio', v: `${m.CVR.toFixed(2)}`, s: 'Guidelines: ≤ 0.45, ideally ≤ 0.33', st: m.CVR <= 0.33 ? 'ok' : m.CVR <= 0.45 ? 'warn' : 'crit' },
+    { k: 'Catheter-to-vessel ratio', v: `${m.CVR.toFixed(2)}`, s: P.neo || (P.mode === 'dialysis' && P.wt < 10) ? 'Adult PICC guidance ≤ 0.45. In neonates ≥ 0.33 is linked to thrombosis' : 'Guidelines: ≤ 0.45, ideally ≤ 0.33', st: m.CVR <= 0.33 ? 'ok' : m.CVR <= 0.45 ? 'warn' : 'crit' },
     { k: 'Mean blood velocity', v: `${fmt(m.Um * 100)}<small>cm/s</small>`, s: `${fmt(m.Um0 * 100)} cm/s without catheter` },
     { k: 'Reynolds · Womersley', v: `${fmt(m.Re)} · ${m.Wo.toFixed(1)}`, s: m.Re > 2000 ? 'Transitional flow' : 'Laminar flow' },
     { k: 'Vessel wall shear rate', v: `${fmt(m.wallGmean)}<small>s⁻¹</small>`, s: `min ${fmt(m.wallGmin)} · ${fmt(m.wallG0)} without catheter`, st: m.wallGmin > 2 * GAMMA_C ? 'ok' : m.wallGmin > GAMMA_C ? 'warn' : 'crit' },
@@ -2081,7 +2403,20 @@ function metricCards(m) {
   } else {
     inf.push({ k: 'Infusion', v: 'Off', s: 'Catheter locked. Holes are not flushed, so they clot faster.', st: 'warn', wide: true });
   }
-  cards.push(['Catheter flow', inf]);
+  if (m.dialysis) {
+    const dl = m.dl, qb = P.qb, circ = P.wt < 20 ? 1.0 : 0.1, dP = dl.drawP / MMHG, rP = dl.retP / MMHG, aT = dP - circ * qb, rT = rP + circ * qb;
+    const rst = R => R < 0.05 ? 'ok' : R < 0.10 ? 'warn' : 'crit';
+    inf.length = 0;
+    inf.push({ k: 'Recirculation', v: `${fmtPct(dl.R)}<small>%</small>`, s: `${P.lines === 'reversed' ? 'Lines reversed' : 'Standard lines'} · drawing openings ${fmt(Math.abs(dl.sep))} mm ${dl.sep >= 0 ? 'upstream of' : 'downstream of'} the return${dl.revFrac > 0.005 ? ` · ${fmt(dl.revFrac * 100)}% of each beat flows back` : ''}${dl.capped.some(Boolean) ? ' · oversized holes capped at the septum' : ''}`, st: qb > 0 ? rst(dl.R) : undefined, wide: true });
+    inf.push({ k: 'Recirculation if lines swapped', v: `${fmtPct(dl.Ralt)}<small>%</small>`, s: P.lines === 'reversed' ? 'With the lines back in the standard connection' : 'Lines are often swapped when the arterial lumen stops drawing', st: qb > 0 ? rst(dl.Ralt) : undefined });
+    inf.push({ k: 'Effective blood flow', v: `${fmt(qb * (1 - dl.R))}<small>mL/min</small>`, s: `${fmt(qb / P.wt)} mL/kg/min set · ${fmt(qb * (1 - dl.R) / P.wt)} mL/kg/min reaches the dialyser unrecirculated` });
+    inf.push({ k: 'Draw lumen pressure', v: dl.draw.net.blocked ? 'Occluded' : dP < -700 ? `&lt; −700<small>mmHg</small>` : `${fmt(dP)}<small>mmHg</small>`, s: dl.draw.net.blocked ? 'No open inlet' : dP < -700 ? 'The lumen or vein would collapse and the pump would stop: lower the flow or use a bigger catheter' : `catheter alone · about ${fmt(aT)} mmHg at the machine with typical ${P.wt < 20 ? 'neonatal' : 'adult'} lines (alarm about −200)`, st: dl.draw.net.blocked || aT < -200 ? 'crit' : aT < -150 ? 'warn' : 'ok' });
+    inf.push({ k: 'Return lumen pressure', v: `${fmt(rP)}<small>mmHg</small>`, s: `catheter alone · about ${fmt(rT)} mmHg at the machine with typical ${P.wt < 20 ? 'neonatal' : 'adult'} lines (alarm about +200)`, st: rT > 200 ? 'crit' : rT > 150 ? 'warn' : 'ok' });
+    inf.push({ k: 'Holes sealed by wall suction', v: `${m.sealed}`, s: m.sealed ? 'A draw-lumen hole is within 0.6 diameters of the wall' : 'No draw-lumen hole is close enough to the wall to seal', st: m.sealed ? 'crit' : 'ok' });
+    inf.push({ k: 'Jet impact on vessel wall', v: `${fmt(m.tauImpMax)}<small>Pa</small>`, s: 'Return jets · endothelial damage near 38 Pa', st: m.tauImpMax > FRY ? 'crit' : m.tauImpMax > 15 ? 'warn' : 'ok' });
+    inf.push({ k: 'Lock heparin spilled', v: `${fmt(dl.heparinUkg)}<small>U/kg</small>`, s: `per lock at 1000 U/mL · ${fmt(dl.lockMl, 2)} mL per lumen · side holes leak more`, st: dl.heparinUkg > 20 ? 'crit' : dl.heparinUkg > 10 ? 'warn' : 'ok' });
+  }
+  cards.push([m.dialysis ? 'Dialysis' : 'Catheter flow', inf]);
   const r = lastRates, p = CL.proj || {};
   const fibNow = arrMean(CL.cath), murNow = Math.max(arrMax(CL.wall), arrMax(CL.down));
   const fibRate = r ? arrMean(r.dc) : m.fibrinRate0, murRate = r ? Math.max(arrMax(r.dw), arrMax(r.dd)) : m.muralRate0;
@@ -2095,27 +2430,88 @@ function metricCards(m) {
     { k: 'Fibrin sheath growth', v: `${fmt(fibRate * 1e6)}<small>µm/h</small>`, s: `now ${fmt(fibNow * 1e6)} µm thick${fibNow > 100e-6 ? ' · may block aspiration' : ''}`, st: fibRate * 1e6 > 2 ? 'warn' : 'ok' },
     { k: 'Mural thrombus growth', v: `${fmt(murRate * 1e6)}<small>µm/h</small>`, s: `largest now ${fmt(murNow * 1e6)} µm · ${(Math.max(muralFraction(CL.wall, m.R), muralFraction(CL.down, m.R)) * 100).toFixed(0)}% of lumen`, st: murRate * 1e6 > 1 ? 'crit' : murRate * 1e6 > 0.2 ? 'warn' : 'ok' },
     { k: 'Hole occlusion rate', v: P.holes.length ? `${fmt(Math.max(0, holeRate) * 100)}<small>%/h</small>` : '—', s: `worst hole ${(P.holes.length ? Math.max(...P.holes.map(h => h.occ || 0)) * 100 : 0).toFixed(0)}% closed · tip ${(CL.end * 100).toFixed(0)}%`, st: holeRate > 0.01 ? 'crit' : holeRate > 0.002 ? 'warn' : 'ok' },
-    { k: 'Hemolysis rate', v: `${fmt(m.hemo)}<small>mg/dL/h</small>`, s: 'Plasma free Hb rise from jet shear, no clearance', st: m.hemo > 5 ? 'crit' : m.hemo > 1 ? 'warn' : 'ok' },
+    { k: 'Hemolysis rate', v: `${fmt(m.hemo)}<small>mg/dL/h</small>`, s: m.dialysis ? `Plasma free Hb rise in a ${fmt(P.wt)} kg patient (${fmt(m.dl.bloodVol)} mL blood), no clearance` : 'Plasma free Hb rise from jet shear, no clearance', st: m.hemo > 5 ? 'crit' : m.hemo > 1 ? 'warn' : 'ok' },
     { k: 'Platelet activation', v: `${fmt(m.plt)}<small>%/h</small>`, s: 'Share of circulating platelets activated per hour', st: m.plt > 1 ? 'crit' : m.plt > 0.1 ? 'warn' : 'ok' },
     { k: 'Projected with current flow', v: '', s: '', st: occlSt, wide: true, extra: `<div class="proj">Fibrin sheath reaches 100 µm: <b>${fmtH(p.sheath100 ?? null)}</b><br>First side hole occluded: <b>${P.holes.length ? fmtH(p.firstHole ?? null) : 'no side holes'}</b><br>Catheter fully occluded: <b>${fmtH(p.occl ?? null)}</b><br>Thrombus fills half the vessel: <b>${fmtH(p.dvt ?? null)}</b></div>` }
   ]]);
   return cards;
 }
+/* How far to trust each readout: 3 = checked against exact solutions or plain geometry,
+   2 = standard engineering correlations (right order, maybe 20–100% off), 1 = hand-calibrated or extrapolated. */
+const CONF = {
+  'Blood flow past catheter': [2, 'The flow solve is exact, but the size of the drop depends on how much of the circulation\'s resistance this vessel segment is assumed to carry.'],
+  'Catheter-to-vessel ratio': [3, 'Plain geometry from the diameters you set.'],
+  'Mean blood velocity': [2, 'Flow divided by open area, so it inherits the uncertainty in total flow.'],
+  'Reynolds · Womersley': [3, 'Simple formulas. The laminar or transitional label is reliable even if the flow estimate is off.'],
+  'Vessel wall shear rate': [3, 'Grid solver matches exact pipe and annulus solutions to under 1%. Real vessels are not perfectly round or rigid.'],
+  'Vessel wall shear stress': [3, 'Shear rate times Carreau viscosity, a standard, well-tested blood model.'],
+  'Catheter surface shear rate': [3, 'Same validated solver as the vessel wall, with the catheter held straight and still.'],
+  'Stasis area (γ̇ < 30 s⁻¹)': [2, 'The area is computed accurately, but the 30 s⁻¹ cut-off is a convention, not a sharp biological line.'],
+  'Peak shear rate': [3, 'Highest shear in the validated cross-section solve. Jets at the holes are not included here.'],
+  'Hub pressure (suction)': [2, 'Pipe-flow formulas plus a typical inlet loss factor. Hole shape and edge finish can shift it noticeably.'],
+  'Hub pressure needed': [2, 'Hagen–Poiseuille for the lumen is accurate. Hole losses use a typical factor that varies with hole shape.'],
+  'Withdrawal share of vessel flow': [2, 'Follows from the vessel flow estimate and the set withdrawal rate.'],
+  'Fastest inflow': [2, 'Hole flow divided by hole area. Depends on how the flow split between holes is modelled.'],
+  'Fastest exit jet': [2, 'Hole flow divided by hole area. Depends on how the flow split between holes is modelled.'],
+  'Holes sealed by wall suction': [1, 'Uses a rule of thumb (within 0.6 hole diameters of the wall). Real sealing depends on suction, vein softness and catheter movement.'],
+  'Fibrin flap over inlets': [1, 'Comes from the clot model, which is calibrated to clinical trends rather than measured.'],
+  'Side-hole flow spread': [2, 'Standard branching-flow network. The spread trend is reliable; exact percentages less so.'],
+  'Lumen flow': [3, 'Infusion rate divided by lumen area.'],
+  'Jet impact on vessel wall': [1, 'Jet path and impact formulas come from fast, turbulent jets. Catheter jets are slower and smooth, so this is an order-of-magnitude estimate.'],
+  'Infusate after full mixing': [3, 'Simple ratio of infusion to blood flow, assuming complete mixing.'],
+  'Thrombosis risk index': [1, 'A relative score built from Virchow\'s triad for comparing designs. It is not a probability.'],
+  'Fibrin sheath growth': [1, 'Rate constants were hand-tuned to known trends (sheaths form within days). No coagulation chemistry is modelled.'],
+  'Mural thrombus growth': [1, 'Hand-tuned clot kinetics. Shows direction and relative speed, not real growth rates.'],
+  'Hole occlusion rate': [1, 'Hand-tuned so a locked catheter without anticoagulant occludes in about 1–2 days.'],
+  'Hemolysis rate': [1, 'Power-law damage models disagree by up to ~200x at catheter conditions. The default (Ding 2015, human blood) is the best supported; absolute values are rough, comparisons between designs are more reliable.'],
+  'Recirculation': [1, 'No neonatal measurement exists. A reduced-order model calibrated to 3D lattice-Boltzmann runs of neonatal tips and adult bench and clinical data. Trends (offset, line direction, tip style, flow ratio) are more reliable than the exact percentage.'],
+  'Recirculation if lines swapped': [1, 'Same model as recirculation. Adult reversed-line data scatter widely (about 9-39% for step and split tips).'],
+  'Effective blood flow': [1, 'Set flow times one minus recirculation, so it carries the recirculation uncertainty.'],
+  'Draw lumen pressure': [2, 'D-lumen Poiseuille resistance plus inlet losses, checked against bench data for 6.5 and 8 Fr neonatal catheters. Neonatal line sets add roughly 1 mmHg per mL/min (bench data); adult lines about 0.1.'],
+  'Return lumen pressure': [2, 'D-lumen Poiseuille resistance plus outlet losses. Machine lines and connectors add a similar amount again.'],
+  'Lock heparin spilled': [2, 'Bench-measured spill fractions (about 20% on instillation, more with side holes) applied to the computed lumen volume. Underfilling the lock reduces it.'],
+  'Platelet activation': [1, 'Giersiepen power law on estimated jet shear. Useful for comparing designs, not as an absolute rate.'],
+  'Projected with current flow': [1, 'Projects the hand-tuned clot model forward. Real occlusion times vary hugely between patients.']
+};
+const CONF_WORD = ['', 'Low', 'Medium', 'High'];
+const confBadge = (lvl, open) => `<button type="button" class="conf c${lvl}" aria-expanded="${open ? 'true' : 'false'}" title="${CONF_WORD[lvl]} confidence. Click for why."><i><b></b><b></b><b></b></i>${CONF_WORD[lvl]}</button>`;
+const confOpen = new Set();
 function updateMetrics() {
   if (!SA) return;
-  const root = $('metrics'); root.textContent = '';
+  const root = $('metrics');
+  const ae = document.activeElement, focusK = ae && root.contains(ae) && ae.matches('button.conf') ? ae.closest('.card').dataset.k : null;
+  root.textContent = '';
+  const note = document.createElement('div'); note.className = 'confnote';
+  note.innerHTML = `<span class="conf c3" aria-hidden="true"><i><b></b><b></b><b></b></i>High</span><span class="conf c2" aria-hidden="true"><i><b></b><b></b><b></b></i>Med</span><span class="conf c1" aria-hidden="true"><i><b></b><b></b><b></b></i>Low</span><span>How far to trust each number. Tap a badge for the reason.</span>`;
+  root.appendChild(note);
   for (const [title, items] of metricCards(SA)) {
     const sec = document.createElement('section'); sec.className = 'panel mgroup';
     const h2 = document.createElement('h2'); h2.textContent = title; sec.appendChild(h2);
     const grid = document.createElement('div'); grid.className = 'mgrid';
     for (const it of items) {
       const c = document.createElement('div'); c.className = 'card' + (it.st ? ' ' + it.st : '') + (it.wide ? ' wide' : '');
-      c.innerHTML = `<div class="k">${it.k}</div>${it.v ? `<div class="v">${it.v}</div>` : ''}${it.s ? `<div class="s">${it.s}</div>` : ''}${it.extra || ''}`;
+      const cf = CONF[it.k], open = cf && confOpen.has(it.k);
+      if (cf) c.dataset.k = it.k;
+      c.innerHTML = `<div class="khead"><div class="k">${it.k}</div>${cf ? confBadge(cf[0], open) : ''}</div>${open ? `<div class="why"><b>${CONF_WORD[cf[0]]} confidence.</b> ${cf[1]}</div>` : ''}${it.v ? `<div class="v">${it.v}</div>` : ''}${it.s ? `<div class="s">${it.s}</div>` : ''}${it.extra || ''}`;
       grid.appendChild(c);
     }
     sec.appendChild(grid); root.appendChild(sec);
   }
+  if (focusK != null) { const nb = root.querySelector(`.card[data-k="${CSS.escape(focusK)}"] button.conf`); if (nb) nb.focus({ preventScroll: true }); }
 }
+// The panel is rebuilt whenever the model re-solves, which can swallow a click, so pointers toggle on press and only
+// keyboard activation (a click with detail 0) goes through the click event.
+function toggleConf(ev) {
+  if (ev.type === 'click' && ev.detail !== 0) return;
+  if (ev.type === 'pointerdown' && ev.button !== 0) return;
+  const b = ev.target.closest('button.conf'); if (!b) return;
+  const k = b.closest('.card').dataset.k;
+  if (confOpen.has(k)) confOpen.delete(k); else confOpen.add(k);
+  b.focus({ preventScroll: true });
+  updateMetrics();
+}
+$('metrics').addEventListener('pointerdown', toggleConf);
+$('metrics').addEventListener('click', toggleConf);
 function updateReadouts() {
   $('tPhys').textContent = `${LV.t.toFixed(2)} s`;
   $('tClin').textContent = CL.hours < 48 ? `${CL.hours.toFixed(1)} h` : `${(CL.hours / 24).toFixed(1)} d`;
@@ -2171,13 +2567,15 @@ function buildChips() {
 const SWEEP_X = {
   fr: { label: 'Catheter size (Fr)', range: () => [1.5, Math.max(2, Math.min(24, P.D * 3 * 0.9))], get: () => P.fr, set: (p, v) => { p.fr = v; p.wallT = Math.min(p.wallT, v / 6 - 0.05); } },
   D: { label: 'Vessel diameter (mm)', range: () => [Math.max(1.5, P.fr / 3 / 0.9), Math.max(P.D * 3, P.fr / 3 / 0.9 + 2)], get: () => P.D, set: (p, v) => p.D = v },
-  inf: { label: 'Catheter flow rate (mL/min)', range: () => [0, Math.max(5, P.inf * 3)], get: () => P.inf, set: (p, v) => p.inf = v },
+  inf: { label: 'Catheter flow rate (mL/min)', range: () => [0, Math.max(5, (P.mode === 'dialysis' ? P.qb : P.inf) * 3)], get: () => P.mode === 'dialysis' ? P.qb : P.inf, set: (p, v) => { if (p.mode === 'dialysis') p.qb = v; else p.inf = v; } },
   Q: { label: 'Blood flow without catheter (mL/min)', range: () => [Math.max(1, P.Q * 0.1), P.Q * 3], get: () => P.Q, set: (p, v) => p.Q = v },
   hole: { label: 'Side-hole diameter, all holes (mm)', range: () => [0.1, Math.max(0.2, Math.min(2.5, (P.fr / 3 - 2 * P.wallT) * 0.95))], get: () => P.holes.length ? arrMean(P.holes.map(h => h.dia)) : 0.5, set: (p, v) => p.holes.forEach(h => h.dia = v) },
   ecc: { label: 'Catheter position (−1 top … +1 bottom)', range: () => [-1, 1], get: () => P.ecc, set: (p, v) => p.ecc = v },
   hct: { label: 'Hematocrit (%)', range: () => [20, 65], get: () => P.hct, set: (p, v) => p.hct = v },
   share: { label: 'Resistance share of segment', range: () => [0, 1], get: () => P.share, set: (p, v) => p.share = v },
-  wallT: { label: 'Catheter wall thickness (mm)', range: () => [0.05, Math.max(0.08, P.fr / 6 - 0.06)], get: () => P.wallT, set: (p, v) => p.wallT = v }
+  wallT: { label: 'Catheter wall thickness (mm)', range: () => [0.05, Math.max(0.08, P.fr / 6 - 0.06)], get: () => P.wallT, set: (p, v) => p.wallT = v },
+  qb: { label: 'Dialysis blood flow (mL/min)', range: () => [1, Math.max(20, P.qb * 3)], get: () => P.qb, set: (p, v) => p.qb = v },
+  offset: { label: 'Step-tip offset (mm)', range: () => [1, Math.max(5, Math.min(40, P.len * 10 - 5))], get: () => P.offset, set: (p, v) => { p.offset = v; } }
 };
 const SWEEP_Y = {
   none: { label: '—' },
@@ -2189,29 +2587,48 @@ const SWEEP_Y = {
   cathG: { label: 'Catheter surface shear rate (s⁻¹)', f: m => m.cathGmean },
   stasis: { label: 'Stasis area (%)', f: m => m.stasis * 100 },
   gMax: { label: 'Peak shear rate (s⁻¹)', f: m => m.gMax },
-  hub: { label: 'Hub pressure (mmHg)', f: m => isFinite(m.hubP) ? m.hubP / MMHG : NaN },
-  draw: { label: 'Withdrawal share of vessel flow (%)', f: m => m.drawShare * 100 },
+  hub: { label: 'Hub pressure (mmHg)', f: m => m.dialysis ? m.dl.drawP / MMHG : isFinite(m.hubP) ? m.hubP / MMHG : NaN },
+  retP: { label: 'Return lumen pressure (mmHg)', f: m => m.dialysis ? m.dl.retP / MMHG : NaN },
+  draw: { label: 'Withdrawal share of vessel flow (%)', f: m => m.dialysis ? m.dl.draw.drawShare * 100 : m.drawShare * 100 },
   jet: { label: 'Fastest hole velocity (m/s)', f: m => m.jetVmax },
   imp: { label: 'Jet wall impact (Pa)', f: m => m.tauImpMax },
   cv: { label: 'Side-hole flow CV (%)', f: m => m.holeCV * 100 },
   hemo: { label: 'Hemolysis rate (mg/dL/h)', f: m => m.hemo },
+  recirc: { label: 'Recirculation (%)', f: m => m.dl ? m.dl.R * 100 : NaN },
+  recircAlt: { label: 'Recirculation, lines swapped (%)', f: m => m.dl ? m.dl.Ralt * 100 : NaN },
   fib: { label: 'Fibrin growth, new catheter (µm/h)', f: m => m.fibrinRate0 * 1e6 },
   mur: { label: 'Mural growth, new catheter (µm/h)', f: m => m.muralRate0 * 1e6 },
   risk: { label: 'Thrombosis risk index', f: m => m.risk },
   re: { label: 'Reynolds number', f: m => m.Re }
 };
+// j >= 0: side hole; j = -1: end opening (in dialysis the arterial lumen's); j = -2: the venous lumen's end (dialysis)
+const endModel = j => SA.dialysis ? (j === -2 ? SA.dl.ven : SA.dl.art) : SA;
+const holeNet = j => j < 0 ? endModel(j).net.end : SA.net.holes[j];
+const holeQin = j => SA.dialysis ? (j < 0 ? endModel(j) : (isArtHole(P.holes[j]) ? SA.dl.art : SA.dl.ven)).net.Qin : SA.net.Qin;
+const holeJet = j => j < 0 ? endModel(j).endJet : SA.jets[j];
 const HOLE_METRICS = {
-  share: { label: 'Share of infusion (%)', f: (j) => SA.net.Qin > 0 ? (j < 0 ? SA.net.end.q : SA.net.holes[j].q) / SA.net.Qin * 100 : 0 },
-  q: { label: 'Flow (mL/min)', f: j => (j < 0 ? SA.net.end.q : SA.net.holes[j].q) * 6e7 },
-  v: { label: 'Velocity through hole (m/s)', f: j => j < 0 ? SA.net.end.v : SA.net.holes[j].v },
-  re: { label: 'Hole Reynolds number', f: j => (j < 0 ? SA.endJet : SA.jets[j]) ? (j < 0 ? SA.endJet : SA.jets[j]).Re : 0 },
+  share: { label: 'Share of the lumen flow (%)', f: j => holeQin(j) > 0 ? holeNet(j).q / holeQin(j) * 100 : 0 },
+  q: { label: 'Flow (mL/min)', f: j => holeNet(j).q * 6e7 },
+  v: { label: 'Velocity through opening (m/s)', f: j => holeNet(j).v },
+  re: { label: 'Opening Reynolds number', f: j => holeJet(j) ? holeJet(j).Re : 0 },
   imp: { label: 'Wall impact shear (Pa)', f: j => j < 0 ? 0 : SA.jets[j].tauImp },
   occ: { label: 'Occlusion (%)', f: j => (j < 0 ? CL.end : (P.holes[j].occ || 0)) * 100 },
   occr: { label: 'Occlusion rate (%/h)', f: j => lastRates ? (j < 0 ? lastRates.de : lastRates.dh[j]) * 100 : 0 },
-  p: { label: 'Pressure difference across hole (mmHg)', f: j => j < 0 ? (SA.net.pTip || 0) / MMHG : SA.net.holes[j].p / MMHG }
+  p: { label: 'Pressure difference across opening (mmHg)', f: j => j < 0 ? (endModel(j).net.pTip || 0) / MMHG : SA.net.holes[j].p / MMHG }
 };
+const outletIds = () => { const ids = P.holes.map((h, j) => j); if (SA && SA.dialysis) ids.push(-1, -2); else if (P.endHole) ids.push(-1); return ids; };
+const outletName = j => j >= 0 ? (SA && SA.dialysis ? `${j + 1}${isArtHole(P.holes[j]) ? 'A' : 'V'}` : `${j + 1}`) : SA && SA.dialysis ? (j === -1 ? 'A end' : 'V end') : 'tip';
 fillSelect($('sweepX'), SWEEP_X, 'label'); fillSelect($('sweepY1'), Object.fromEntries(Object.entries(SWEEP_Y).filter(([k]) => k !== 'none')), 'label'); fillSelect($('sweepY2'), SWEEP_Y, 'label');
 fillSelect($('holeMetric'), HOLE_METRICS, 'label');
+// sweep axes that only make sense in one mode are hidden in the others
+const DL_ONLY_X = ['qb', 'offset'], DL_ONLY_Y = ['retP', 'recirc', 'recircAlt'], SL_ONLY_X = ['inf', 'hole'];
+function syncSweepOptions() {
+  const dlm = P.mode === 'dialysis';
+  for (const o of $('sweepX').options) o.hidden = dlm ? SL_ONLY_X.includes(o.value) || (o.value === 'offset' && P.tip !== 'step') : DL_ONLY_X.includes(o.value);
+  for (const id of ['sweepY1', 'sweepY2']) for (const o of $(id).options) o.hidden = !dlm && DL_ONLY_Y.includes(o.value);
+  const fix = (id, key, dflt) => { const opt = [...$(id).options].find(o => o.value === V[key]); if (!opt || opt.hidden) { V[key] = dflt; $(id).value = dflt; } };
+  fix('sweepX', 'sweepX', dlm ? 'qb' : 'fr'); fix('sweepY1', 'sweepY1', dlm ? 'recirc' : 'flowRed'); fix('sweepY2', 'sweepY2', dlm ? 'recircAlt' : 'risk');
+}
 $('sweepX').value = V.sweepX; $('sweepY1').value = V.sweepY1; $('sweepY2').value = V.sweepY2;
 $('sweepX').addEventListener('change', () => { V.sweepX = $('sweepX').value; requestSweep(true); });
 $('sweepY1').addEventListener('change', () => { V.sweepY1 = $('sweepY1').value; drawChart(); });
@@ -2223,6 +2640,7 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
   V.tab = b.dataset.tab;
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
   $('ctlLive').hidden = V.tab !== 'live'; $('ctlSweep').hidden = V.tab !== 'sweep'; $('ctlHoles').hidden = V.tab !== 'holes'; $('ctlProfile').hidden = V.tab !== 'profile';
+  syncSweepOptions();
   if (V.tab === 'sweep') requestSweep(); drawChart();
 }));
 
@@ -2246,7 +2664,7 @@ function runSweep() {
       const pp = JSON.parse(JSON.stringify(P));
       def.set(pp, xv);
       let m = null;
-      if (pp.fr / 3 < pp.D * 0.93 && pp.wallT < pp.fr / 6) { try { m = evaluate(pp, { N: N_SW, cache: swCache, maxIt: 200, tol: 3e-4 }); } catch (e) { m = null; } }
+      if (pp.fr / 3 < pp.D * 0.93 && pp.wallT < pp.fr / 6) { try { m = evalAny(pp, { N: N_SW, cache: swCache, maxIt: 200, tol: 3e-4 }); } catch (e) { m = null; } }
       const row = { x: xv };
       for (const k in SWEEP_Y) if (SWEEP_Y[k].f) row[k] = m ? SWEEP_Y[k].f(m) : NaN;
       pts.push(row); i++;
@@ -2353,7 +2771,11 @@ function drawSweep(g, W, H, C) {
   const L = 60, Rm = y2 ? 60 : 16, T = 24, B = 36, Wp = W - L - Rm, Hp = H - T - B;
   const xlo = SW.lo ?? 0, xhi = SW.hi ?? 1;
   const xp = v => L + Wp * (v - xlo) / (xhi - xlo || 1);
-  const range = key => { let lo = Infinity, hi = -Infinity; for (const p of pts) { const v = p[key]; if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } } return padRange(lo, hi, true); };
+  const range = key => {
+    let lo = Infinity, hi = -Infinity; for (const p of pts) { const v = p[key]; if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+    if (/\(%\)$/.test(SWEEP_Y[key].label) && isFinite(lo)) { lo = Math.min(lo, 0); hi = Math.max(hi, lo + 1); }   // percentages: from 0, at least 1 point tall
+    return padRange(lo, hi, true);
+  };
   const [a1, b1] = range(V.sweepY1), yt1 = niceTicks(a1, b1, 5);
   axisFrame(g, L, T, Wp, Hp, C, yt1, a1, b1);
   const yp1 = v => T + Hp * (1 - (v - a1) / (b1 - a1 || 1));
@@ -2390,7 +2812,7 @@ function drawSweep(g, W, H, C) {
 }
 function drawHoleBars(g, W, H, C) {
   const met = HOLE_METRICS[V.holeMetric];
-  const ids = P.holes.map((h, j) => j); if (P.endHole) ids.push(-1);
+  const ids = outletIds();
   const L = 60, Rm = 16, T = 22, B = 34, Wp = W - L - Rm, Hp = H - T - B;
   g.fillStyle = C.ink; g.font = '600 11px "Public Sans", sans-serif'; g.textAlign = 'left'; g.fillText(met.label, L, 12);
   g.font = '500 10.5px "IBM Plex Mono", monospace';
@@ -2407,7 +2829,7 @@ function drawHoleBars(g, W, H, C) {
     const y0 = yp(Math.max(lo, 0)), y1 = yp(isFinite(v) ? v : 0);
     roundRect(g, x - bw / 2, Math.min(y0, y1), bw, Math.max(1, Math.abs(y1 - y0)), 3); g.fill();
     g.fillStyle = C.ink2; g.textAlign = 'center'; g.fillText(fmt(v), x, Math.min(y0, y1) - 5);
-    g.fillStyle = C.ink3; g.fillText(j < 0 ? 'tip' : `#${j + 1}`, x, T + Hp + 14);
+    g.fillStyle = C.ink3; g.fillText(j < 0 ? outletName(j) : `#${outletName(j)}`, x, T + Hp + 14);
     if (j >= 0 && ids.length < 18) g.fillText(`${P.holes[j].dist.toFixed(0)}mm`, x, T + Hp + 27);
   });
 }
@@ -2462,8 +2884,10 @@ function chartCSV() {
     for (const p of SW.pts) rows.push([p.x, ...Object.keys(SWEEP_Y).filter(k => SWEEP_Y[k].f).map(k => p[k])]);
   } else if (V.tab === 'holes') {
     rows.push(['outlet', 'distance_from_tip_mm', 'angle_deg', 'diameter_mm', ...Object.values(HOLE_METRICS).map(m => m.label)]);
-    P.holes.forEach((h, j) => rows.push([j + 1, h.dist, h.ang, h.dia, ...Object.values(HOLE_METRICS).map(m => m.f(j))]));
-    if (P.endHole) rows.push(['tip', 0, '', SA.net.end.r0 * 2000, ...Object.values(HOLE_METRICS).map(m => m.f(-1))]);
+    for (const j of outletIds()) {
+      const pos = j >= 0 ? P.holes[j].dist : SA.dialysis && j === -1 && SA.dl.step ? SA.dl.off : 0;
+      rows.push([outletName(j), pos, j >= 0 ? P.holes[j].ang : '', j >= 0 ? (SA.dialysis ? SA.dl.effDia[j] : P.holes[j].dia) : holeNet(j).r0 * 2000, ...Object.values(HOLE_METRICS).map(m => m.f(j))]);
+    }
   } else {
     rows.push(['height_mm', 'velocity_cm_s', 'shear_rate_s-1', 'viscosity_mPa_s', 'velocity_no_catheter_cm_s', 'shear_rate_no_catheter_s-1']);
     const R = SA.R, mm = LV.main, tw = LV.twin;
@@ -2477,13 +2901,16 @@ function reportCSV() {
   add('scenario', 'preset', PRESETS[P.preset] ? PRESETS[P.preset].label : 'custom');
   add('vessel', 'diameter', P.D, 'mm'); add('vessel', 'baseline flow', P.Q, 'mL/min'); add('vessel', 'waveform', WAVES[P.wave]); add('vessel', 'heart rate', P.hr, '/min'); add('vessel', 'mean pressure', P.Pv, 'mmHg'); add('vessel', 'resistance share', P.share);
   add('catheter', 'size', P.fr, 'Fr'); add('catheter', 'outer diameter', P.fr / 3, 'mm'); add('catheter', 'lumen diameter', m.ri * 2000, 'mm'); add('catheter', 'length', P.len, 'cm'); add('catheter', 'position', P.ecc); add('catheter', 'material', MATERIALS[P.mat].name);
-  add('catheter flow', 'direction', P.mode === 'aspirate' ? 'into catheter (withdrawal)' : 'out of catheter (infusion)'); add('catheter flow', 'fluid', P.mode === 'aspirate' ? 'blood' : INFUSATES[P.infusate].name); add('catheter flow', 'rate', P.inf, 'mL/min');
+  if (m.dialysis) { add('catheter flow', 'direction', 'dual lumen (dialysis)'); add('catheter flow', 'fluid', 'blood'); add('catheter flow', 'rate', P.qb, 'mL/min'); }
+  else { add('catheter flow', 'direction', P.mode === 'aspirate' ? 'into catheter (withdrawal)' : 'out of catheter (infusion)'); add('catheter flow', 'fluid', P.mode === 'aspirate' ? 'blood' : INFUSATES[P.infusate].name); add('catheter flow', 'rate', P.inf, 'mL/min'); }
+  add('blood', 'hemolysis model', P.hemoModel === 'giersiepen' ? 'Giersiepen 1990' : 'Ding 2015'); add('blood', 'neonatal red cells', P.neo ? 'x1.6 fragility' : 'no');
   add('blood', 'hematocrit', P.hct, '%'); add('blood', 'rheology', P.rheo); add('patient', 'coagulability', COAG[P.coag].name); add('patient', 'anticoagulation', AC[P.ac].name);
   add('results', 'blood flow', m.Qc * 6e7, 'mL/min'); add('results', 'flow reduction', m.flowRed * 100, '%'); add('results', 'catheter-to-vessel ratio', m.CVR);
   add('results', 'mean velocity', m.Um * 100, 'cm/s'); add('results', 'Reynolds number', m.Re); add('results', 'Womersley number', m.Wo);
   add('results', 'wall shear rate mean', m.wallGmean, '1/s'); add('results', 'wall shear rate min', m.wallGmin, '1/s'); add('results', 'wall shear rate no catheter', m.wallG0, '1/s');
   add('results', 'wall shear stress mean', m.wallTauMean, 'Pa'); add('results', 'catheter surface shear rate', m.cathGmean, '1/s'); add('results', 'stasis area', m.stasis * 100, '%'); add('results', 'peak shear rate', m.gMax, '1/s');
-  add('results', 'hub pressure', m.hubP / MMHG, 'mmHg'); add('results', 'lumen Reynolds', m.net.lumenRe); add('results', 'fastest jet', m.jetVmax, 'm/s'); add('results', 'jet wall impact', m.tauImpMax, 'Pa'); add('results', 'side-hole flow CV', m.holeCV * 100, '%');
+  add('results', m.dialysis ? 'hub pressure, return lumen' : 'hub pressure', m.hubP / MMHG, 'mmHg'); add('results', 'lumen Reynolds', m.net.lumenRe); add('results', 'fastest jet', m.jetVmax, 'm/s'); add('results', 'jet wall impact', m.tauImpMax, 'Pa'); add('results', 'side-hole flow CV', m.holeCV * 100, '%');
+  if (m.dialysis) { add('dialysis', 'tip design', P.tip); add('dialysis', 'tip offset', P.offset, 'mm'); add('dialysis', 'lines', P.lines); add('dialysis', 'blood flow', P.qb, 'mL/min'); add('dialysis', 'patient weight', P.wt, 'kg'); add('dialysis', 'recirculation', m.dl.R * 100, '%'); add('dialysis', 'recirculation lines swapped', m.dl.Ralt * 100, '%'); add('dialysis', 'opening separation', m.dl.sep, 'mm'); add('dialysis', 'draw lumen pressure', m.dl.drawP / MMHG, 'mmHg'); add('dialysis', 'return lumen pressure', m.dl.retP / MMHG, 'mmHg'); add('dialysis', 'lock heparin spilled', m.dl.heparinUkg, 'U/kg'); }
   add('results', 'hemolysis rate', m.hemo, 'mg/dL/h'); add('results', 'platelet activation', m.plt, '%/h'); add('results', 'thrombosis risk index', m.risk, '/100');
   add('results', 'Virchow stasis', m.virchow.S); add('results', 'Virchow injury', m.virchow.E); add('results', 'Virchow hypercoagulability', m.virchow.H);
   add('clot', 'clinical time', CL.hours, 'h'); add('clot', 'fibrin sheath mean', arrMean(CL.cath) * 1e6, 'um'); add('clot', 'mural thrombus max', Math.max(arrMax(CL.wall), arrMax(CL.down)) * 1e6, 'um');
