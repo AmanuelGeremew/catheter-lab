@@ -519,7 +519,7 @@ const saCache = {}, swCache = {};
 function loadPreset(key) {
   const p = PRESETS[key];
   Object.assign(P, JSON.parse(JSON.stringify(Object.assign({}, p, { holes: undefined }))));
-  P.preset = key; P.holes = p.holes(); P.mode = p.mode || 'infuse';
+  P.preset = key; P.holes = p.holes(); P.frSet = P.fr; P.wallSet = P.wallT; P.mode = p.mode || 'infuse';
   // dual-lumen dialysis settings (used when mode = 'dialysis')
   P.tip = p.tip || 'step'; P.offset = p.offset !== undefined ? p.offset : 10; P.lines = p.lines || 'standard';
   preDL = null;
@@ -1750,7 +1750,7 @@ function drawCatheterDL(tint) {
       ctx.fillStyle = 'rgba(12,6,10,0.6)'; roundRect(ctx, rx - w, y - 7, w, 14, 5); ctx.fill();
       ctx.fillStyle = 'rgba(244,236,238,0.95)'; ctx.fillText(txt, rx - 5, y + 0.5);
     };
-    if ((rb - hs) * k > 9) { pill(drawTop ? 'arterial · to machine' : 'arterial · returning', Y(e + (rb + hs) / 2), true); pill(drawTop ? 'venous · returning' : 'venous · to machine', Y(e - (rb + hs) / 2), false); }
+    if ((rb - hs) * k > 15) { pill(drawTop ? 'arterial · to machine' : 'arterial · returning', Y(e + (rb + hs) / 2), true); pill(drawTop ? 'venous · returning' : 'venous · to machine', Y(e - (rb + hs) / 2), false); }
     ctx.restore();
   }
 }
@@ -2204,7 +2204,7 @@ function syncUI() {
   $('vtype').value = P.vtype; $('Pv').value = P.Pv; $('oPv').textContent = `${P.Pv} mmHg`;
   $('share').value = P.share; $('oshare').textContent = P.share.toFixed(2);
   $('fr').value = P.fr; const od = P.fr / 3; $('ofr').textContent = `${P.fr.toFixed(1)} Fr`;
-  $('frNote').textContent = `Outer diameter ${od.toFixed(2)} mm ${gaugeOf(od)} · catheter-to-vessel ratio ${(od / P.D).toFixed(2)}`;
+  $('frNote').textContent = `Outer diameter ${od.toFixed(2)} mm ${gaugeOf(od)} · catheter-to-vessel ratio ${(od / P.D).toFixed(2)}` + (P.frSet && P.frSet > P.fr + 0.05 ? ` · shrunk to fit the vessel (set to ${P.frSet.toFixed(1)} Fr; widen the vessel to restore it)` : '');
   $('wallT').max = Math.max(0.06, od / 2 - 0.05).toFixed(2);
   $('wallT').value = P.wallT; $('owallT').textContent = `${P.wallT.toFixed(2)} mm`;
   $('idNote').textContent = `Lumen inner diameter ${Math.max(0.08, od - 2 * P.wallT).toFixed(2)} mm`;
@@ -2253,11 +2253,13 @@ function syncGen(id) {
   o.textContent = id === 'gN' ? String(v) : id === 'gTaper' ? `${v.toFixed(2)}×` : `${v.toFixed(2)} mm`;
 }
 function bindRange(id, fn) { $(id).addEventListener('input', () => { fn(+$(id).value); syncUI(); requestSA(90); }); }
-bindRange('D', v => { P.D = v; P.fr = Math.min(P.fr, v * 3 * 0.92); bgKey = ''; });
+// the vessel limits the catheter (it must fit), but the chosen size comes back when the vessel is widened again
+const fitCatheter = () => { P.fr = Math.min(P.frSet ?? P.fr, P.D * 3 * 0.92); P.wallT = Math.min(P.wallSet ?? P.wallT, P.fr / 6 - 0.05); };
+bindRange('D', v => { P.D = v; fitCatheter(); bgKey = ''; });
 bindRange('Q', v => P.Q = +logMap(v, 1, 5000).toPrecision(3));
 bindRange('hr', v => P.hr = v); bindRange('rr', v => P.rr = v); bindRange('Pv', v => P.Pv = v); bindRange('share', v => P.share = v);
-bindRange('fr', v => { P.fr = Math.min(v, P.D * 3 * 0.92); P.wallT = Math.min(P.wallT, P.fr / 6 - 0.05); });
-bindRange('wallT', v => { P.wallT = Math.min(v, P.fr / 6 - 0.05); });
+bindRange('fr', v => { P.frSet = v; fitCatheter(); });
+bindRange('wallT', v => { P.wallSet = v; fitCatheter(); });
 bindRange('len', v => { P.len = v; P.offset = Math.min(P.offset, Math.max(1, P.len * 10 - 5)); }); bindRange('ecc', v => P.ecc = v);
 bindRange('endDia', v => { const idmm = Math.max(0.08, P.fr / 3 - 2 * P.wallT); P.endDia = v >= idmm - 0.005 ? null : v; });
 bindRange('inf', v => P.inf = v < 3 ? 0 : +logMap(v, 0.01, 300).toPrecision(3));
